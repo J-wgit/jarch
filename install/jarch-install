@@ -90,6 +90,8 @@ matches() {
 }
 
 on_error() {
+    # set -E runs this trap in subshells too; report once, from the top level
+    [[ $BASH_SUBSHELL -eq 0 ]] || return 0
     err "Failed at line $1 (exit $2). Fix the problem and re-run; finished steps are skipped."
     err "Full log: $LOG_FILE"
 }

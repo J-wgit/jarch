@@ -36,10 +36,17 @@ else
     _aur_build "${AUR_HELPER}-bin" || true
     if ! _helper_works; then
         warn "${AUR_HELPER}-bin doesn't run on this system; building $AUR_HELPER from source"
-        if pacman -Qq "${AUR_HELPER}-bin" &>/dev/null; then
+        # makepkg also installs a -debug split package; remove both so the
+        # source build's files don't conflict
+        _old=()
+        for _p in "${AUR_HELPER}-bin" "${AUR_HELPER}-bin-debug"; do
+            pacman -Qq "$_p" &>/dev/null && _old+=("$_p")
+        done
+        if [[ ${#_old[@]} -gt 0 ]]; then
             # shellcheck disable=SC2046
-            sudo pacman -Rns $(pacman_noconfirm) "${AUR_HELPER}-bin"
+            sudo pacman -Rns $(pacman_noconfirm) "${_old[@]}"
         fi
+        unset _old _p
         _aur_build "$AUR_HELPER"
     fi
     _helper_works || die "$AUR_HELPER failed to install"

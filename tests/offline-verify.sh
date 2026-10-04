@@ -24,6 +24,7 @@ check "pacman.conf tuned" "grep -q '^Color' /etc/pacman.conf && grep -q '^Parall
 check "all pacman packages requested" "grep -q 'pacman -Syu --needed --noconfirm' /stub/log.first"
 check "paru-bin tried first" "grep -q 'git clone --depth 1 https://aur.archlinux.org/paru-bin.git' /stub/log.first"
 check "broken paru-bin falls back to source build" "grep -q 'git clone --depth 1 https://aur.archlinux.org/paru.git' /stub/log.first"
+check "paru-bin and paru-bin-debug removed before source build" "grep -q 'pacman -Rns --noconfirm paru-bin paru-bin-debug' /stub/log.first && ! grep -q '^paru-bin' /stub/db"
 check "AUR packages installed with paru" "grep -q '^paru -S --needed --noconfirm --skipreview downgrade' /stub/log.first"
 check "second run doesn't rebuild paru" "! grep -q 'makepkg' /stub/log"
 check "second run doesn't re-enable services" "! grep -q 'systemctl enable' /stub/log"
