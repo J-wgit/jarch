@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Stub git clone (offline); everything else goes to real git
+if [[ "$1" == clone ]]; then echo "git $*" >>"${STUB_LOG:?}"; mkdir -p "${@: -1}"; exit 0; fi
+exec /usr/bin/git "$@"

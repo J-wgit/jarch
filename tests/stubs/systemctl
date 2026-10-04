@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+echo "systemctl $*" >>"${STUB_LOG:?}"
+case "$1" in
+    is-enabled) grep -qx "enabled ${!#}" "$STUB_DB" 2>/dev/null; exit ;;
+    enable) echo "enabled ${!#}" >>"$STUB_DB" ;;
+esac
+exit 0

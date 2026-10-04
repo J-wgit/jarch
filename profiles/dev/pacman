@@ -1,0 +1,14 @@
+# Development toolchain (matches the dev_/py_/rust_/node_/ctr_ functions)
+python-pip
+python-pipx
+python-pytest
+python-coverage
+mypy
+nodejs
+npm
+rustup
+go
+docker
+docker-compose
+ctags
+github-cli

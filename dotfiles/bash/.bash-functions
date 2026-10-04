@@ -1,0 +1,3016 @@
+#!/usr/bin/env bash
+# =============================================================================
+# bash-functions — Comprehensive System Administration & Development Functions
+# =============================================================================
+# Target:  Arch Linux (pacman/yay) | Source code & AI-assisted development
+# Source from ~/.bashrc or ~/.zshrc:
+#   [ -f "$HOME/.bash-functions" ] && source "$HOME/.bash-functions"
+#
+# CATEGORIES
+# ----------
+#  1.  Core Utilities & Helpers         (util_*)
+#  2.  Package Management               (pkg_*)
+#  3.  System Information & Hardware    (sys_*)
+#  4.  System Maintenance               (maint_*)
+#  5.  Filesystem & Disk                (fs_*)
+#  6.  Process & Resource Management    (proc_*)
+#  7.  Networking & Connectivity        (net_*)
+#  8.  User & Permission Management     (usr_*)
+#  9.  Systemd & Services               (svc_*)
+# 10.  Security & Cryptography          (sec_*)
+# 11.  Logging & Monitoring             (log_*)
+# 12.  Backup & Restore                 (bak_*)
+# 13.  Development Environment          (dev_*)
+# 14.  Git & Version Control            (git_*)
+# 15.  Build Systems                    (build_*)
+# 16.  Container & Virtualisation       (ctr_*)
+# 17.  Python & Virtual Environments    (py_*)
+# 18.  Rust / Cargo                     (rust_*)
+# 19.  Node.js / JavaScript             (node_*)
+# 20.  AI & LLM Development             (ai_*)
+# 21.  Database                         (db_*)
+# 22.  dotfile Management               (dots_*)
+# =============================================================================
+
+[[ "${_BASH_FUNCTIONS_LOADED:-}" == "1" ]] && return
+_BASH_FUNCTIONS_LOADED=1
+
+# ─── Internal colour/print helpers (used by all functions below) ──────────────
+
+_clr_reset='\033[0m'
+_clr_bold='\033[1m'
+_clr_red='\033[0;31m'
+_clr_green='\033[0;32m'
+_clr_yellow='\033[0;33m'
+_clr_blue='\033[0;34m'
+_clr_cyan='\033[0;36m'
+_clr_magenta='\033[0;35m'
+_clr_white='\033[0;37m'
+
+_info()    { echo -e "${_clr_blue}[INFO]${_clr_reset}  $*"; }
+_ok()      { echo -e "${_clr_green}[OK]${_clr_reset}    $*"; }
+_warn()    { echo -e "${_clr_yellow}[WARN]${_clr_reset}  $*"; }
+_err()     { echo -e "${_clr_red}[ERR]${_clr_reset}   $*" >&2; }
+_title()   { echo -e "\n${_clr_bold}${_clr_cyan}══ $* ══${_clr_reset}\n"; }
+_section() { echo -e "${_clr_magenta}── $* ──${_clr_reset}"; }
+_die()     { _err "$*"; return 1; }
+
+# Check for required commands before running a function
+_require() {
+    local cmd
+    for cmd in "$@"; do
+        command -v "$cmd" &>/dev/null || _die "Required command not found: '$cmd'"
+    done
+}
+
+# Confirm prompt — returns 0 on yes, 1 on no
+_confirm() {
+    local prompt="${1:-Are you sure?}"
+    local reply
+    read -r -p "$(echo -e "${_clr_yellow}${prompt} [y/N] ${_clr_reset}")" reply
+    [[ "${reply,,}" =~ ^y(es)?$ ]]
+}
+
+
+# =============================================================================
+# 1. CORE UTILITIES & HELPERS (util_*)
+# =============================================================================
+
+# util_help — list all functions in this file with their descriptions
+util_help() {
+    _title "bash-functions reference"
+    grep -E '^# [a-z_]+\(\) —' "$BASH_SOURCE" 2>/dev/null ||
+    grep -E '^[a-z_]+\(\)\s*\{' "$BASH_SOURCE" | sed 's/() {//' | column
+}
+
+# util_reload — reload this functions file
+util_reload() {
+    # shellcheck source=/dev/null
+    source "${BASH_SOURCE[0]}" && _ok "Functions reloaded from ${BASH_SOURCE[0]}"
+}
+
+# util_which_all — show all locations of a command name (not just the first)
+util_which_all() {
+    [[ -z "$1" ]] && { _err "Usage: util_which_all <command>"; return 1; }
+    type -a "$1"
+    command -v "$1" && whereis "$1"
+}
+
+# util_path_add — prepend a directory to PATH (no duplicates)
+util_path_add() {
+    [[ -z "$1" ]] && { _err "Usage: util_path_add <dir>"; return 1; }
+    [[ -d "$1" ]] || { _err "Directory does not exist: $1"; return 1; }
+    case ":$PATH:" in
+        *":$1:"*) _warn "$1 already in PATH" ;;
+        *) export PATH="$1:$PATH" && _ok "Added $1 to PATH" ;;
+    esac
+}
+
+# util_path_show — print PATH entries one per line, highlight missing dirs
+util_path_show() {
+    _title "PATH entries"
+    local entry
+    IFS=':' read -ra entries <<< "$PATH"
+    for entry in "${entries[@]}"; do
+        if [[ -d "$entry" ]]; then
+            echo -e "  ${_clr_green}✔${_clr_reset}  $entry"
+        else
+            echo -e "  ${_clr_red}✘${_clr_reset}  $entry  (missing)"
+        fi
+    done
+}
+
+# util_mkcd — create directory (including parents) and cd into it
+util_mkcd() {
+    [[ -z "$1" ]] && { _err "Usage: util_mkcd <dir>"; return 1; }
+    mkdir -p "$1" && cd "$1" && _ok "Created and entered: $1"
+}
+
+# util_extract — universal archive extractor
+util_extract() {
+    local file="$1"
+    [[ -z "$file" ]] && { _err "Usage: util_extract <archive>"; return 1; }
+    [[ -f "$file" ]] || { _err "File not found: $file"; return 1; }
+    _info "Extracting: $file"
+    case "$file" in
+        *.tar.bz2|*.tbz2) tar xjvf "$file" ;;
+        *.tar.gz|*.tgz)   tar xzvf "$file" ;;
+        *.tar.xz|*.txz)   tar xJvf "$file" ;;
+        *.tar.zst)         tar --zstd -xvf "$file" ;;
+        *.tar)             tar xvf  "$file" ;;
+        *.bz2)             bunzip2  "$file" ;;
+        *.gz)              gunzip   "$file" ;;
+        *.xz)              unxz     "$file" ;;
+        *.zst)             unzstd   "$file" ;;
+        *.zip)             unzip    "$file" ;;
+        *.rar)             unrar x  "$file" ;;
+        *.7z)              7z x     "$file" ;;
+        *.Z)               uncompress "$file" ;;
+        *)  _err "Unrecognised archive format: $file"; return 1 ;;
+    esac && _ok "Done."
+}
+
+# util_compress — create archive from files/dirs
+# Usage: util_compress <output.tar.gz> <file|dir> [...]
+util_compress() {
+    [[ $# -lt 2 ]] && { _err "Usage: util_compress <output.ext> <file|dir> [...]"; return 1; }
+    local out="$1"; shift
+    case "$out" in
+        *.tar.gz|*.tgz)  tar czvf "$out" "$@" ;;
+        *.tar.bz2|*.tbz) tar cjvf "$out" "$@" ;;
+        *.tar.xz)         tar cJvf "$out" "$@" ;;
+        *.tar.zst)        tar --zstd -cvf "$out" "$@" ;;
+        *.zip)            zip -r   "$out" "$@" ;;
+        *.7z)             7z a     "$out" "$@" ;;
+        *) _err "Unknown extension for: $out"; return 1 ;;
+    esac && _ok "Created: $out"
+}
+
+# util_timestamp — generate a filename-safe ISO timestamp
+util_timestamp() {
+    date "+%Y%m%d_%H%M%S"
+}
+
+# util_iso8601 — generate an ISO 8601 datetime string
+util_iso8601() {
+    date "+%Y-%m-%dT%H:%M:%S%z"
+}
+
+# util_repeat — run a command N times
+# Usage: util_repeat <N> <command> [args...]
+util_repeat() {
+    local n="$1"; shift
+    [[ "$n" =~ ^[0-9]+$ ]] || { _err "Usage: util_repeat <N> <command>"; return 1; }
+    local i
+    for ((i=1; i<=n; i++)); do
+        _info "Run $i/$n: $*"
+        "$@" || { _err "Command failed on run $i"; return 1; }
+    done
+}
+
+# util_retry — retry a command up to N times with delay
+# Usage: util_retry <attempts> <delay_secs> <command> [args...]
+util_retry() {
+    local attempts="$1" delay="$2"; shift 2
+    local i
+    for ((i=1; i<=attempts; i++)); do
+        "$@" && return 0
+        _warn "Attempt $i/$attempts failed. Retrying in ${delay}s..."
+        sleep "$delay"
+    done
+    _err "All $attempts attempts failed: $*"
+    return 1
+}
+
+# util_time_cmd — time a command with human-readable output
+util_time_cmd() {
+    local start end elapsed
+    start=$(date +%s%N)
+    "$@"
+    local rc=$?
+    end=$(date +%s%N)
+    elapsed=$(( (end - start) / 1000000 ))
+    _info "Elapsed: ${elapsed}ms  (exit code: $rc)"
+    return $rc
+}
+
+# util_genpass — generate a cryptographically random password
+# Usage: util_genpass [length=32]
+util_genpass() {
+    local len="${1:-32}"
+    < /dev/urandom tr -dc 'A-Za-z0-9!@#$%^&*()_+-=' | head -c "$len"
+    echo
+}
+
+# util_genpass_words — generate a passphrase from /usr/share/dict/words
+# Usage: util_genpass_words [word_count=4]
+util_genpass_words() {
+    local count="${1:-4}"
+    local words_file="/usr/share/dict/words"
+    [[ -f "$words_file" ]] || { _err "Word list not found: $words_file"; return 1; }
+    shuf -n "$count" "$words_file" | tr '\n' '-' | sed 's/-$//'
+    echo
+}
+
+# util_qr — display a QR code in the terminal
+util_qr() {
+    _require qrencode
+    [[ -z "$1" ]] && { _err "Usage: util_qr <text|url>"; return 1; }
+    qrencode -t UTF8 "$1"
+}
+
+# util_hex — hex dump a file with optional search
+# Usage: util_hex <file> [search_string]
+util_hex() {
+    [[ -z "$1" ]] && { _err "Usage: util_hex <file> [search]"; return 1; }
+    if [[ -n "$2" ]]; then
+        xxd "$1" | grep --color=auto "$2"
+    else
+        xxd "$1" | less
+    fi
+}
+
+# util_calc — interactive calculator (or evaluate expression)
+# Usage: util_calc [expression]
+util_calc() {
+    if [[ -n "$1" ]]; then
+        echo "$*" | bc -l
+    else
+        bc -l
+    fi
+}
+
+# util_json_pp — pretty-print JSON from file or stdin
+util_json_pp() {
+    if [[ -n "$1" ]]; then
+        python3 -m json.tool "$1"
+    else
+        python3 -m json.tool
+    fi
+}
+
+# util_yaml_check — validate a YAML file
+util_yaml_check() {
+    _require python3
+    [[ -z "$1" ]] && { _err "Usage: util_yaml_check <file.yaml>"; return 1; }
+    python3 -c "import yaml, sys; yaml.safe_load(open('$1'))" \
+        && _ok "YAML valid: $1" || _err "YAML invalid: $1"
+}
+
+# util_toml_check — validate a TOML file
+util_toml_check() {
+    _require python3
+    [[ -z "$1" ]] && { _err "Usage: util_toml_check <file.toml>"; return 1; }
+    python3 -c "import tomllib, sys; tomllib.load(open('$1','rb'))" \
+        && _ok "TOML valid: $1" || _err "TOML invalid: $1"
+}
+
+
+# =============================================================================
+# 2. PACKAGE MANAGEMENT (pkg_*)
+# =============================================================================
+
+# pkg_install — install one or more packages (tries yay, falls back to pacman)
+pkg_install() {
+    [[ $# -eq 0 ]] && { _err "Usage: pkg_install <pkg> [pkg...]"; return 1; }
+    if command -v yay &>/dev/null; then
+        yay -S --needed "$@"
+    else
+        sudo pacman -S --needed "$@"
+    fi
+}
+
+# pkg_remove — remove package(s) with dependencies and config
+pkg_remove() {
+    [[ $# -eq 0 ]] && { _err "Usage: pkg_remove <pkg> [pkg...]"; return 1; }
+    _confirm "Remove packages: $*?" || return 1
+    sudo pacman -Rns "$@"
+}
+
+# pkg_upgrade — full system upgrade (AUR included if yay present)
+pkg_upgrade() {
+    _title "Full System Upgrade"
+    if command -v yay &>/dev/null; then
+        yay -Syu
+    else
+        sudo pacman -Syu
+    fi
+}
+
+# pkg_upgrade_keys — refresh pacman keyring before upgrading
+pkg_upgrade_keys() {
+    _title "Refreshing Pacman Keys"
+    sudo pacman-key --refresh-keys
+    sudo pacman-key --populate archlinux
+    pkg_upgrade
+}
+
+# pkg_search — search repos and AUR simultaneously
+pkg_search() {
+    [[ -z "$1" ]] && { _err "Usage: pkg_search <term>"; return 1; }
+    if command -v yay &>/dev/null; then
+        yay -Ss "$1"
+    else
+        pacman -Ss "$1"
+    fi
+}
+
+# pkg_info — show detailed info for a package (installed or remote)
+pkg_info() {
+    [[ -z "$1" ]] && { _err "Usage: pkg_info <pkg>"; return 1; }
+    if pacman -Qi "$1" &>/dev/null; then
+        pacman -Qi "$1"
+    else
+        pacman -Si "$1" 2>/dev/null || \
+        { command -v yay &>/dev/null && yay -Si "$1"; }
+    fi
+}
+
+# pkg_files — list files owned by an installed package
+pkg_files() {
+    [[ -z "$1" ]] && { _err "Usage: pkg_files <pkg>"; return 1; }
+    pacman -Ql "$1"
+}
+
+# pkg_owns — find which package owns a file
+pkg_owns() {
+    [[ -z "$1" ]] && { _err "Usage: pkg_owns <file>"; return 1; }
+    pacman -Qo "$1"
+}
+
+# pkg_explicit — list all explicitly installed packages
+pkg_explicit() {
+    pacman -Qe | column
+}
+
+# pkg_explicit_native — explicitly installed packages from official repos only
+pkg_explicit_native() {
+    pacman -Qen
+}
+
+# pkg_explicit_aur — explicitly installed AUR/foreign packages
+pkg_explicit_aur() {
+    pacman -Qem
+}
+
+# pkg_orphans — list orphaned packages (no longer required as dependencies)
+pkg_orphans() {
+    local orphans
+    orphans=$(pacman -Qtdq 2>/dev/null)
+    if [[ -z "$orphans" ]]; then
+        _ok "No orphaned packages found."
+    else
+        _warn "Orphaned packages:"
+        echo "$orphans"
+    fi
+}
+
+# pkg_clean_orphans — remove all orphaned packages
+pkg_clean_orphans() {
+    local orphans
+    orphans=$(pacman -Qtdq 2>/dev/null)
+    [[ -z "$orphans" ]] && { _ok "No orphans to remove."; return 0; }
+    _warn "Orphans to remove:"
+    echo "$orphans"
+    _confirm "Remove these orphaned packages?" || return 1
+    echo "$orphans" | xargs sudo pacman -Rns
+}
+
+# pkg_clean_cache — clean pacman cache (keep 2 most recent versions)
+pkg_clean_cache() {
+    _require paccache
+    _info "Cleaning pacman cache (keeping 2 versions)..."
+    sudo paccache -rk2
+    sudo paccache -ruk0   # remove all cached uninstalled packages
+    _ok "Cache cleaned."
+}
+
+# pkg_clean_all — orphans + cache + unused flatpaks
+pkg_clean_all() {
+    _title "Full System Cleanup"
+    pkg_clean_orphans
+    pkg_clean_cache
+    if command -v flatpak &>/dev/null; then
+        _info "Removing unused Flatpak runtimes..."
+        flatpak uninstall --unused -y
+    fi
+    _ok "All cleanup done."
+}
+
+# pkg_list_sizes — list installed packages sorted by installed size
+pkg_list_sizes() {
+    local n="${1:-30}"
+    _title "Top $n packages by installed size"
+    expac -s "%-35n %m" | sort -hk2 | tail -"$n" | awk '{
+        size=$2; unit="B"
+        if(size>1073741824){size/=1073741824; unit="GiB"}
+        else if(size>1048576){size/=1048576; unit="MiB"}
+        else if(size>1024){size/=1024; unit="KiB"}
+        printf "%-35s  %6.1f %s\n", $1, size, unit
+    }' | sort -k2 -rh
+}
+
+# pkg_check_updates — list available updates without installing
+pkg_check_updates() {
+    _title "Available Updates"
+    if command -v yay &>/dev/null; then
+        yay -Qu
+    else
+        pacman -Qu
+    fi
+}
+
+# pkg_install_group — install an entire pacman group
+pkg_install_group() {
+    [[ -z "$1" ]] && { _err "Usage: pkg_install_group <group>"; return 1; }
+    pacman -Sg "$1" | awk '{print $2}' | xargs sudo pacman -S --needed
+}
+
+# pkg_mirrors_update — refresh mirrorlist using reflector for fastest mirrors
+pkg_mirrors_update() {
+    _require reflector
+    _title "Updating Pacman Mirrorlist"
+    _info "Fetching fastest mirrors (this may take a minute)..."
+    sudo reflector \
+        --country GB,DE,NL,FR \
+        --protocol https \
+        --latest 20 \
+        --sort rate \
+        --save /etc/pacman.d/mirrorlist
+    _ok "Mirrorlist updated."
+    _info "Syncing databases..."
+    sudo pacman -Syy
+}
+
+# pkg_verify — verify integrity of installed package files
+pkg_verify() {
+    [[ -z "$1" ]] && { _err "Usage: pkg_verify <pkg>"; return 1; }
+    _info "Verifying: $1"
+    pacman -Qkk "$1"
+}
+
+# pkg_downgrade — downgrade a package using cached versions
+pkg_downgrade() {
+    [[ -z "$1" ]] && { _err "Usage: pkg_downgrade <pkg>"; return 1; }
+    local cache_dir="/var/cache/pacman/pkg"
+    local versions
+    versions=$(ls "${cache_dir}/${1}"-[0-9]*.pkg.tar.* 2>/dev/null | sort -rV)
+    if [[ -z "$versions" ]]; then
+        _err "No cached versions found for: $1"
+        _info "Tip: use 'downgrade' (AUR) for more options"
+        return 1
+    fi
+    _info "Available cached versions:"
+    echo "$versions" | nl
+    read -rp "Enter number to install: " choice
+    local pkg
+    pkg=$(echo "$versions" | sed -n "${choice}p")
+    [[ -z "$pkg" ]] && { _err "Invalid selection."; return 1; }
+    sudo pacman -U "$pkg"
+}
+
+# pkg_news — show latest Arch Linux news
+pkg_news() {
+    _require curl
+    _title "Latest Arch Linux News"
+    curl -s "https://archlinux.org/feeds/news/" | \
+        grep -oP '(?<=<title>)[^<]+' | tail -n +2 | head -10 | nl
+}
+
+
+# =============================================================================
+# 3. SYSTEM INFORMATION & HARDWARE (sys_*)
+# =============================================================================
+
+# sys_info — comprehensive system overview
+sys_info() {
+    _title "System Overview"
+    _section "OS & Kernel"
+    echo "  Hostname : $(hostnamectl hostname)"
+    echo "  OS       : $(grep PRETTY_NAME /etc/os-release | cut -d'"' -f2)"
+    echo "  Kernel   : $(uname -r)"
+    echo "  Arch     : $(uname -m)"
+
+    _section "CPU"
+    echo "  Model    : $(grep 'model name' /proc/cpuinfo | head -1 | cut -d':' -f2 | xargs)"
+    echo "  Cores    : $(nproc) logical / $(grep 'cpu cores' /proc/cpuinfo | head -1 | awk '{print $4}') physical"
+    echo "  Governor : $(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null || echo 'N/A')"
+
+    _section "Memory"
+    free -h | awk '/Mem/{printf "  RAM      : %s used / %s total\n", $3, $2}'
+    free -h | awk '/Swap/{printf "  Swap     : %s used / %s total\n", $3, $2}'
+
+    _section "Disk"
+    df -hT | awk 'NR==1 || /\/dev\// {printf "  %-15s %-8s %-6s %-6s %-6s %s\n",$1,$2,$3,$4,$5,$7}'
+
+    _section "Network"
+    ip -4 addr | awk '/inet / && !/127\.0\.0\.1/ {printf "  %-12s %s\n", $NF, $2}'
+
+    _section "Uptime"
+    uptime -p | sed 's/up /  /'
+}
+
+# sys_cpu — detailed CPU information
+sys_cpu() {
+    _title "CPU Information"
+    lscpu
+    echo ""
+    _section "Current Frequencies"
+    grep 'MHz' /proc/cpuinfo | awk -F': ' '{printf "  Core: %.0f MHz\n", $2}' | sort -u
+}
+
+# sys_cpu_governor — show or set CPU frequency governor
+# Usage: sys_cpu_governor [governor]
+sys_cpu_governor() {
+    local available
+    available=$(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors 2>/dev/null)
+    if [[ -z "$1" ]]; then
+        _info "Current governor : $(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor)"
+        _info "Available        : $available"
+        return 0
+    fi
+    _info "Setting governor to: $1"
+    echo "$1" | sudo tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor
+}
+
+# sys_mem — memory statistics
+sys_mem() {
+    _title "Memory Statistics"
+    free -h
+    echo ""
+    _section "Top Memory Consumers"
+    ps aux --sort=-%mem | awk 'NR==1 || NR<=11{printf "  %-25s %5s%% %s MB\n", $11, $4, $6/1024}' | head -12
+}
+
+# sys_mem_clear — clear reclaimable caches (safe, kernel reclaims as needed)
+sys_mem_clear() {
+    _confirm "Sync and clear PageCache/dentries/inodes?" || return 1
+    sync
+    echo 3 | sudo tee /proc/sys/vm/drop_caches
+    _ok "Memory caches cleared."
+    free -h
+}
+
+# sys_temps — CPU and GPU temperatures
+sys_temps() {
+    _title "System Temperatures"
+    if command -v sensors &>/dev/null; then
+        sensors
+    else
+        _warn "lm_sensors not installed. Trying thermal zones..."
+        for zone in /sys/class/thermal/thermal_zone*; do
+            local temp type
+            temp=$(cat "$zone/temp" 2>/dev/null)
+            type=$(cat "$zone/type" 2>/dev/null)
+            printf "  %-20s %s°C\n" "$type" "$((temp/1000))"
+        done
+    fi
+    if command -v nvidia-smi &>/dev/null; then
+        _section "GPU (NVIDIA)"
+        nvidia-smi --query-gpu=name,temperature.gpu,utilization.gpu,memory.used,memory.total \
+                   --format=csv,noheader
+    fi
+}
+
+# sys_gpu — GPU information
+sys_gpu() {
+    _title "GPU Information"
+    if command -v nvidia-smi &>/dev/null; then
+        nvidia-smi
+    elif command -v radeontop &>/dev/null; then
+        radeontop -d - -l 1
+    else
+        lspci | grep -i 'vga\|display\|3d\|gpu'
+    fi
+}
+
+# sys_hw — all hardware (PCI, USB, block devices)
+sys_hw() {
+    _title "Hardware Summary"
+    _section "PCI Devices"
+    lspci -k | grep -A2 "VGA\|Audio\|Network\|USB\|NVMe\|SATA"
+    _section "USB Devices"
+    lsusb
+    _section "Block Devices"
+    lsblk -o NAME,SIZE,TYPE,FSTYPE,LABEL,MOUNTPOINT,MODEL
+}
+
+# sys_boot_time — show systemd boot time analysis
+sys_boot_time() {
+    _title "Boot Time Analysis"
+    systemd-analyze
+    echo ""
+    _section "Critical Chain"
+    systemd-analyze critical-chain
+    echo ""
+    _section "Top 20 Slowest Units"
+    systemd-analyze blame | head -20
+}
+
+# sys_kernel_mods — list loaded kernel modules, optional filter
+# Usage: sys_kernel_mods [filter]
+sys_kernel_mods() {
+    if [[ -n "$1" ]]; then
+        lsmod | grep -i "$1"
+    else
+        lsmod | sort | less
+    fi
+}
+
+# sys_dmi — show DMI/BIOS/motherboard information
+sys_dmi() {
+    _title "DMI / Hardware Identity"
+    sudo dmidecode -t system
+    sudo dmidecode -t baseboard
+    sudo dmidecode -t bios
+}
+
+# sys_env — display environment variables, optionally filtered
+# Usage: sys_env [filter]
+sys_env() {
+    if [[ -n "$1" ]]; then
+        env | grep -i "$1" | sort
+    else
+        env | sort | less
+    fi
+}
+
+
+# =============================================================================
+# 4. SYSTEM MAINTENANCE (maint_*)
+# =============================================================================
+
+# maint_full — run all standard maintenance tasks
+maint_full() {
+    _title "Full System Maintenance"
+    maint_update
+    maint_clean
+    maint_journal_vac
+    maint_failed_units
+    maint_check_errors
+    _ok "Full maintenance complete."
+}
+
+# maint_update — upgrade system + AUR + Flatpaks
+maint_update() {
+    _title "System Update"
+    _section "Pacman / AUR"
+    if command -v yay &>/dev/null; then
+        yay -Syu --noconfirm
+    else
+        sudo pacman -Syu
+    fi
+    if command -v flatpak &>/dev/null; then
+        _section "Flatpak"
+        flatpak update -y
+    fi
+    _ok "System updated."
+}
+
+# maint_clean — clean caches, orphans, temp files
+maint_clean() {
+    _title "System Cleanup"
+
+    _section "Removing orphaned packages"
+    local orphans
+    orphans=$(pacman -Qtdq 2>/dev/null)
+    if [[ -n "$orphans" ]]; then
+        echo "$orphans"
+        if _confirm "Remove orphans?"; then
+            echo "$orphans" | xargs sudo pacman -Rns
+        fi
+    else
+        _ok "No orphans."
+    fi
+
+    _section "Cleaning pacman cache"
+    if command -v paccache &>/dev/null; then
+        sudo paccache -rk2
+        sudo paccache -ruk0
+    else
+        sudo pacman -Sc --noconfirm
+    fi
+
+    _section "Cleaning user caches"
+    local cache_size
+    cache_size=$(du -sh ~/.cache 2>/dev/null | cut -f1)
+    _info "~/.cache size: $cache_size"
+    if _confirm "Clear ~/.cache?"; then
+        rm -rf ~/.cache/*
+        _ok "User cache cleared."
+    fi
+
+    _section "Removing broken symlinks in ~"
+    find ~ -maxdepth 4 -xtype l -not -path '*/.git/*' 2>/dev/null | while read -r link; do
+        _warn "Broken symlink: $link"
+        _confirm "Remove $link?" && rm "$link"
+    done
+
+    _section "Cleaning pip cache"
+    if command -v pip &>/dev/null; then
+        pip cache purge 2>/dev/null && _ok "pip cache purged."
+    fi
+
+    _section "Cleaning cargo cache"
+    if command -v cargo &>/dev/null && command -v cargo-cache &>/dev/null; then
+        cargo cache --autoclean
+    fi
+
+    _section "Cleaning npm cache"
+    if command -v npm &>/dev/null; then
+        npm cache clean --force 2>/dev/null && _ok "npm cache cleaned."
+    fi
+
+    _ok "Cleanup complete."
+}
+
+# maint_journal_vac — vacuum systemd journal logs
+# Usage: maint_journal_vac [days=14]
+maint_journal_vac() {
+    local days="${1:-14}"
+    _title "Journal Vacuum (keep ${days} days)"
+    sudo journalctl --vacuum-time="${days}d"
+    sudo journalctl --vacuum-size=512M
+    _ok "Journal vacuumed."
+}
+
+# maint_failed_units — show failed systemd units
+maint_failed_units() {
+    _title "Failed Systemd Units"
+    _section "System"
+    systemctl --failed
+    _section "User"
+    systemctl --user --failed
+}
+
+# maint_check_errors — scan journals for recent errors
+maint_check_errors() {
+    _title "Recent System Errors (last 24h)"
+    journalctl -p err -xb --since="24 hours ago" --no-pager | tail -50
+}
+
+# maint_check_disk_health — run SMART tests on all disks
+maint_check_disk_health() {
+    _require smartctl
+    _title "Disk SMART Health"
+    local disks
+    disks=$(lsblk -dno NAME | grep -E '^(sd|nvme|vd)')
+    for disk in $disks; do
+        _section "/dev/$disk"
+        sudo smartctl -H "/dev/$disk"
+    done
+}
+
+# maint_check_filesystem — check filesystems for errors (unmounted/read-only mounts)
+maint_check_filesystem() {
+    _title "Filesystem Check"
+    _warn "This should be run on unmounted filesystems. Use from recovery/initramfs for root."
+    local device="${1:-}"
+    if [[ -n "$device" ]]; then
+        sudo fsck -n "$device"
+    else
+        _info "Pass a device (e.g. /dev/sda1) to check it."
+        lsblk -o NAME,MOUNTPOINT,FSTYPE | grep -v MOUNTPOINT
+    fi
+}
+
+# maint_trim — run fstrim for SSDs
+maint_trim() {
+    _title "SSD TRIM"
+    sudo fstrim -av
+}
+
+# maint_fix_perms — fix common broken permissions in home directory
+maint_fix_perms() {
+    _title "Fixing Home Directory Permissions"
+    _info "Setting ~/.ssh to 700 and keys to 600..."
+    [[ -d ~/.ssh ]] && {
+        chmod 700 ~/.ssh
+        chmod 600 ~/.ssh/*
+        chmod 644 ~/.ssh/*.pub 2>/dev/null
+        _ok "~/.ssh permissions fixed."
+    }
+    _info "Setting ~/.gnupg to 700..."
+    [[ -d ~/.gnupg ]] && {
+        chmod 700 ~/.gnupg
+        find ~/.gnupg -type f -exec chmod 600 {} \;
+        _ok "~/.gnupg permissions fixed."
+    }
+    _info "Resetting home directory to 755..."
+    chmod 755 ~
+    _ok "Permissions fixed."
+}
+
+# maint_pacman_fix — fix common pacman issues (lock file, corrupt db)
+maint_pacman_fix() {
+    _title "Pacman Database Repair"
+    _section "Removing lock file"
+    [[ -f /var/lib/pacman/db.lck ]] && sudo rm /var/lib/pacman/db.lck && _ok "Lock removed."
+    _section "Refreshing keyring"
+    sudo pacman-key --refresh-keys
+    sudo pacman-key --populate archlinux
+    _section "Refreshing database"
+    sudo pacman -Syy
+    _ok "Pacman repaired."
+}
+
+# maint_locate_update — update mlocate/plocate database
+maint_locate_update() {
+    _title "Updating locate database"
+    if command -v updatedb &>/dev/null; then
+        sudo updatedb && _ok "Database updated."
+    else
+        _err "mlocate/plocate not installed."
+    fi
+}
+
+# maint_fonts_update — rebuild font cache
+maint_fonts_update() {
+    _title "Rebuilding Font Cache"
+    fc-cache -fv
+    mkfontscale ~/.local/share/fonts 2>/dev/null
+    mkfontdir   ~/.local/share/fonts 2>/dev/null
+    _ok "Font cache rebuilt."
+}
+
+# maint_mime_update — update MIME database
+maint_mime_update() {
+    _title "Updating MIME Database"
+    sudo update-mime-database /usr/share/mime
+    update-mime-database ~/.local/share/mime
+    _ok "MIME database updated."
+}
+
+# maint_desktop_update — refresh desktop entries
+maint_desktop_update() {
+    _title "Updating Desktop Database"
+    sudo update-desktop-database /usr/share/applications
+    update-desktop-database ~/.local/share/applications
+    _ok "Desktop database updated."
+}
+
+
+# =============================================================================
+# 5. FILESYSTEM & DISK (fs_*)
+# =============================================================================
+
+# fs_usage — visual disk usage for a path (uses ncdu if available)
+fs_usage() {
+    local path="${1:-.}"
+    if command -v ncdu &>/dev/null; then
+        ncdu "$path"
+    else
+        du -sh "${path%/}"/* 2>/dev/null | sort -h
+    fi
+}
+
+# fs_largest — find the N largest files under a path
+# Usage: fs_largest [n=20] [path=.]
+fs_largest() {
+    local n="${1:-20}" path="${2:-.}"
+    _title "Top $n largest files in $path"
+    find "$path" -xdev -type f -printf '%s\t%p\n' 2>/dev/null \
+        | sort -rn | head -"$n" \
+        | awk '{
+            size=$1; file=$2; unit="B"
+            if(size>1073741824){size/=1073741824; unit="GiB"}
+            else if(size>1048576){size/=1048576; unit="MiB"}
+            else if(size>1024){size/=1024; unit="KiB"}
+            printf "%7.1f %-4s  %s\n", size, unit, file
+        }'
+}
+
+# fs_empty — find and optionally remove empty files/dirs
+# Usage: fs_empty [path=.] [--remove]
+fs_empty() {
+    local path="${1:-.}" remove=false
+    [[ "${2:-}" == "--remove" ]] && remove=true
+
+    _title "Empty files and directories in $path"
+    _section "Empty files"
+    find "$path" -type f -empty -not -path '*/.git/*'
+
+    _section "Empty directories"
+    find "$path" -type d -empty -not -path '*/.git/*'
+
+    if $remove; then
+        _confirm "Remove all found empty files and dirs?" || return 1
+        find "$path" -type f -empty -not -path '*/.git/*' -delete
+        find "$path" -type d -empty -not -path '*/.git/*' -delete
+        _ok "Removed."
+    fi
+}
+
+# fs_dupes — find duplicate files by MD5 hash
+# Usage: fs_dupes [path=.]
+fs_dupes() {
+    local path="${1:-.}"
+    _title "Finding duplicate files in: $path"
+    find "$path" -type f -not -path '*/.git/*' -exec md5sum {} + 2>/dev/null \
+        | sort | awk '{
+            if ($1 == prev_hash) {
+                if (!printed) { print prev_file; printed=1 }
+                print $2
+            } else {
+                prev_hash=$1; prev_file=$2; printed=0
+            }
+        }'
+}
+
+# fs_old — find files not accessed/modified in N days
+# Usage: fs_old [days=30] [path=.]
+fs_old() {
+    local days="${1:-30}" path="${2:-.}"
+    _title "Files not modified in $days days: $path"
+    find "$path" -type f -mtime +"$days" -not -path '*/.git/*' | sort
+}
+
+# fs_recent — find files modified in the last N minutes
+# Usage: fs_recent [minutes=60] [path=.]
+fs_recent() {
+    local mins="${1:-60}" path="${2:-.}"
+    _title "Files modified in last $mins minutes: $path"
+    find "$path" -type f -mmin -"$mins" -not -path '*/.git/*' | sort
+}
+
+# fs_watch — watch a directory for changes (requires inotifywait)
+# Usage: fs_watch [path=.]
+fs_watch() {
+    _require inotifywait
+    local path="${1:-.}"
+    _info "Watching: $path  (Ctrl+C to stop)"
+    inotifywait -m -r -e modify,create,delete,move "$path"
+}
+
+# fs_mount_list — show all mounted filesystems in a readable table
+fs_mount_list() {
+    findmnt -D
+}
+
+# fs_mount_iso — mount an ISO image to a temp dir
+# Usage: fs_mount_iso <file.iso>
+fs_mount_iso() {
+    [[ -z "$1" ]] && { _err "Usage: fs_mount_iso <file.iso>"; return 1; }
+    local iso="$1"
+    local mnt
+    mnt=$(mktemp -d /tmp/iso-XXXX)
+    sudo mount -o loop,ro "$iso" "$mnt"
+    _ok "Mounted $iso → $mnt"
+    echo "$mnt"
+}
+
+# fs_disk_smart — full SMART report for a disk
+# Usage: fs_disk_smart <device>
+fs_disk_smart() {
+    _require smartctl
+    [[ -z "$1" ]] && { _err "Usage: fs_disk_smart <device>   e.g. /dev/sda"; return 1; }
+    sudo smartctl -a "$1"
+}
+
+# fs_inodes — show inode usage per filesystem
+fs_inodes() {
+    _title "Inode Usage"
+    df -i | sort -k5 -rh
+}
+
+# fs_permissions_audit — find world-writable or SUID files in a path
+# Usage: fs_permissions_audit [path=/]
+fs_permissions_audit() {
+    local path="${1:-/}"
+    _title "Permission Audit: $path"
+    _section "World-writable files"
+    sudo find "$path" -xdev -type f -perm -0002 -not -path '/proc/*' 2>/dev/null
+    _section "SUID files"
+    sudo find "$path" -xdev -type f -perm -4000 2>/dev/null
+    _section "SGID files"
+    sudo find "$path" -xdev -type f -perm -2000 2>/dev/null
+}
+
+
+# =============================================================================
+# 6. PROCESS & RESOURCE MANAGEMENT (proc_*)
+# =============================================================================
+
+# proc_top_cpu — show top N processes by CPU
+proc_top_cpu() {
+    local n="${1:-15}"
+    _title "Top $n Processes by CPU"
+    ps aux --sort=-%cpu | head -$(( n + 1 ))
+}
+
+# proc_top_mem — show top N processes by memory
+proc_top_mem() {
+    local n="${1:-15}"
+    _title "Top $n Processes by Memory"
+    ps aux --sort=-%mem | head -$(( n + 1 ))
+}
+
+# proc_find — search for processes by name
+proc_find() {
+    [[ -z "$1" ]] && { _err "Usage: proc_find <name>"; return 1; }
+    ps aux | grep -v grep | grep --color=auto -i "$1"
+}
+
+# proc_tree — process tree for a given PID or name
+proc_tree() {
+    local target="${1:-1}"
+    if [[ "$target" =~ ^[0-9]+$ ]]; then
+        pstree -p "$target"
+    else
+        pstree -p "$(pgrep "$target" | head -1)"
+    fi
+}
+
+# proc_limits — show resource limits for a running process
+proc_limits() {
+    [[ -z "$1" ]] && { _err "Usage: proc_limits <pid>"; return 1; }
+    cat "/proc/$1/limits"
+}
+
+# proc_open_files — list open files for a PID (or all processes)
+proc_open_files() {
+    local pid="${1:-}"
+    if [[ -n "$pid" ]]; then
+        sudo lsof -p "$pid"
+    else
+        sudo lsof | less
+    fi
+}
+
+# proc_open_ports — show which processes have open network connections
+proc_open_ports() {
+    sudo ss -tulnp
+}
+
+# proc_kill_name — kill all processes matching a name
+proc_kill_name() {
+    [[ -z "$1" ]] && { _err "Usage: proc_kill_name <name>"; return 1; }
+    _warn "Killing all processes matching: $1"
+    _confirm "Proceed?" || return 1
+    pkill -SIGTERM -f "$1"
+    sleep 2
+    pkill -SIGKILL -f "$1" 2>/dev/null
+    _ok "Done."
+}
+
+# proc_nice_set — renice a running process
+# Usage: proc_nice_set <pid> <nice_value>  (-20 high priority, 19 low)
+proc_nice_set() {
+    [[ $# -lt 2 ]] && { _err "Usage: proc_nice_set <pid> <nice>"; return 1; }
+    sudo renice -n "$2" -p "$1"
+}
+
+# proc_watch — live process stats for a specific process
+proc_watch() {
+    [[ -z "$1" ]] && { _err "Usage: proc_watch <name|pid>"; return 1; }
+    watch -n 1 "ps aux | grep -v grep | grep '$1'"
+}
+
+# proc_strace_cmd — strace a command and save output
+# Usage: proc_strace_cmd <command> [args...]
+proc_strace_cmd() {
+    _require strace
+    [[ -z "$1" ]] && { _err "Usage: proc_strace_cmd <command> [args]"; return 1; }
+    local out="/tmp/strace_$(util_timestamp).log"
+    strace -f -tt -o "$out" "$@"
+    _ok "strace output saved to: $out"
+}
+
+# proc_iowait — show I/O wait per process
+proc_iowait() {
+    _require iotop
+    sudo iotop -a -o
+}
+
+
+# =============================================================================
+# 7. NETWORKING & CONNECTIVITY (net_*)
+# =============================================================================
+
+# net_info — full network interface summary
+net_info() {
+    _title "Network Information"
+    _section "Interfaces"
+    ip -c a
+    _section "Routing Table"
+    ip -c r
+    _section "DNS"
+    resolvectl status 2>/dev/null || cat /etc/resolv.conf
+}
+
+# net_check — test connectivity at multiple layers
+# Usage: net_check [host=1.1.1.1]
+net_check() {
+    local host="${1:-1.1.1.1}"
+    _title "Connectivity Check"
+    _section "Ping: $host"
+    ping -c 3 "$host" && _ok "Network reachable." || _err "Ping failed."
+    _section "DNS Resolution"
+    nslookup archlinux.org && _ok "DNS working." || _err "DNS failed."
+    _section "HTTPS"
+    curl -s --max-time 5 https://archlinux.org > /dev/null && _ok "HTTPS working." || _err "HTTPS failed."
+}
+
+# net_speed — quick download speed test
+net_speed() {
+    _info "Testing download speed..."
+    if command -v speedtest-cli &>/dev/null; then
+        speedtest-cli
+    else
+        curl -o /dev/null -s -w "  Downloaded: %{size_download} bytes\n  Speed: %{speed_download} bytes/s\n  Time: %{time_total}s\n" \
+            https://speed.cloudflare.com/__down?bytes=10000000
+    fi
+}
+
+# net_ports_open — scan localhost for listening ports
+net_ports_open() {
+    _title "Listening Ports"
+    sudo ss -tulnp | sort -k5
+}
+
+# net_port_check — check if a remote port is open
+# Usage: net_port_check <host> <port>
+net_port_check() {
+    [[ $# -lt 2 ]] && { _err "Usage: net_port_check <host> <port>"; return 1; }
+    if timeout 3 bash -c "echo >/dev/tcp/$1/$2" 2>/dev/null; then
+        _ok "Port $2 is OPEN on $1"
+    else
+        _err "Port $2 is CLOSED on $1"
+    fi
+}
+
+# net_myip — show public IP addresses (IPv4 and IPv6)
+net_myip() {
+    _info "IPv4 : $(curl -s -4 ifconfig.me)"
+    _info "IPv6 : $(curl -s -6 ifconfig.me 2>/dev/null || echo 'N/A')"
+}
+
+# net_dns_lookup — comprehensive DNS lookup for a domain
+# Usage: net_dns_lookup <domain>
+net_dns_lookup() {
+    [[ -z "$1" ]] && { _err "Usage: net_dns_lookup <domain>"; return 1; }
+    _title "DNS Records: $1"
+    for type in A AAAA MX NS TXT CNAME SOA; do
+        _section "$type"
+        dig +short "$type" "$1" 2>/dev/null || echo "  (none)"
+    done
+}
+
+# net_trace — traceroute to a host with DNS
+net_trace() {
+    [[ -z "$1" ]] && { _err "Usage: net_trace <host>"; return 1; }
+    if command -v mtr &>/dev/null; then
+        mtr --report --report-cycles 5 "$1"
+    else
+        traceroute "$1"
+    fi
+}
+
+# net_serve — start a quick HTTP server in current directory
+# Usage: net_serve [port=8000]
+net_serve() {
+    local port="${1:-8000}"
+    _info "Serving $(pwd) on http://0.0.0.0:$port"
+    python3 -m http.server "$port"
+}
+
+# net_capture — capture network traffic on an interface
+# Usage: net_capture [interface=any] [filter]
+net_capture() {
+    _require tcpdump
+    local iface="${1:-any}" filter="${2:-}"
+    local out="/tmp/capture_$(util_timestamp).pcap"
+    _info "Capturing on $iface → $out  (Ctrl+C to stop)"
+    # shellcheck disable=SC2086
+    sudo tcpdump -i "$iface" -w "$out" $filter
+    _ok "Saved to: $out"
+}
+
+# net_wifi_scan — scan for available WiFi networks
+net_wifi_scan() {
+    _require nmcli
+    nmcli device wifi list
+}
+
+# net_wifi_connect — connect to a WiFi network
+# Usage: net_wifi_connect <SSID> [password]
+net_wifi_connect() {
+    _require nmcli
+    [[ -z "$1" ]] && { _err "Usage: net_wifi_connect <SSID> [password]"; return 1; }
+    if [[ -n "$2" ]]; then
+        nmcli device wifi connect "$1" password "$2"
+    else
+        nmcli device wifi connect "$1"
+    fi
+}
+
+# net_hosts_add — add an entry to /etc/hosts
+# Usage: net_hosts_add <ip> <hostname>
+net_hosts_add() {
+    [[ $# -lt 2 ]] && { _err "Usage: net_hosts_add <ip> <hostname>"; return 1; }
+    echo "$1 $2" | sudo tee -a /etc/hosts
+    _ok "Added: $1  $2"
+}
+
+# net_firewall_status — show nftables or iptables rules
+net_firewall_status() {
+    _title "Firewall Status"
+    if command -v nft &>/dev/null; then
+        sudo nft list ruleset
+    elif command -v iptables &>/dev/null; then
+        sudo iptables -L -n -v
+    else
+        _warn "No firewall utility found."
+    fi
+}
+
+
+# =============================================================================
+# 8. USER & PERMISSION MANAGEMENT (usr_*)
+# =============================================================================
+
+# usr_info — show current user and group memberships
+usr_info() {
+    _title "User Information"
+    echo "  User    : $USER (UID: $UID)"
+    echo "  Home    : $HOME"
+    echo "  Shell   : $SHELL"
+    echo "  Groups  : $(groups)"
+    id
+}
+
+# usr_add — create a new system user with home directory
+# Usage: usr_add <username> [groups]
+usr_add() {
+    [[ -z "$1" ]] && { _err "Usage: usr_add <username> [group,group]"; return 1; }
+    local user="$1" groups="${2:-}"
+    sudo useradd -m -s /bin/bash "$user"
+    [[ -n "$groups" ]] && sudo usermod -aG "$groups" "$user"
+    sudo passwd "$user"
+    _ok "User created: $user"
+}
+
+# usr_groups_add — add current or named user to groups
+# Usage: usr_groups_add <group[,group...]> [user=$USER]
+usr_groups_add() {
+    [[ -z "$1" ]] && { _err "Usage: usr_groups_add <groups> [user]"; return 1; }
+    local groups="$1" user="${2:-$USER}"
+    sudo usermod -aG "$groups" "$user"
+    _ok "Added $user to groups: $groups"
+    _info "Re-login or run: newgrp <group>"
+}
+
+# usr_sudoers_check — validate /etc/sudoers syntax
+usr_sudoers_check() {
+    sudo visudo -c && _ok "sudoers syntax OK."
+}
+
+# usr_login_history — show login history
+usr_login_history() {
+    last -n "${1:-20}"
+}
+
+# usr_failed_logins — show failed login attempts
+usr_failed_logins() {
+    sudo faillock --user "${1:-}"
+    sudo journalctl -g "Failed password\|authentication failure" --since="7 days ago" --no-pager | tail -30
+}
+
+# usr_lock — lock a user account
+usr_lock() {
+    [[ -z "$1" ]] && { _err "Usage: usr_lock <username>"; return 1; }
+    sudo passwd -l "$1" && _ok "Locked: $1"
+}
+
+# usr_unlock — unlock a user account
+usr_unlock() {
+    [[ -z "$1" ]] && { _err "Usage: usr_unlock <username>"; return 1; }
+    sudo passwd -u "$1" && _ok "Unlocked: $1"
+}
+
+
+# =============================================================================
+# 9. SYSTEMD & SERVICES (svc_*)
+# =============================================================================
+
+# svc_status — status of a system or user service
+# Usage: svc_status <service> [--user]
+svc_status() {
+    [[ -z "$1" ]] && { _err "Usage: svc_status <service> [--user]"; return 1; }
+    local svc="${1%.service}.service" user_flag=""
+    [[ "${2:-}" == "--user" ]] && user_flag="--user"
+    systemctl $user_flag status "$svc"
+}
+
+# svc_enable — enable and start a service
+# Usage: svc_enable <service> [--user]
+svc_enable() {
+    [[ -z "$1" ]] && { _err "Usage: svc_enable <service> [--user]"; return 1; }
+    local svc="${1%.service}" user_flag=""
+    [[ "${2:-}" == "--user" ]] && user_flag="--user"
+    sudo systemctl $user_flag enable --now "$svc"
+    _ok "Enabled and started: $svc"
+}
+
+# svc_disable — disable and stop a service
+svc_disable() {
+    [[ -z "$1" ]] && { _err "Usage: svc_disable <service> [--user]"; return 1; }
+    local svc="${1%.service}" user_flag=""
+    [[ "${2:-}" == "--user" ]] && user_flag="--user"
+    sudo systemctl $user_flag disable --now "$svc"
+    _ok "Disabled and stopped: $svc"
+}
+
+# svc_restart — restart a service
+svc_restart() {
+    [[ -z "$1" ]] && { _err "Usage: svc_restart <service> [--user]"; return 1; }
+    local svc="${1%.service}" user_flag=""
+    [[ "${2:-}" == "--user" ]] && user_flag="--user"
+    sudo systemctl $user_flag restart "$svc" && _ok "Restarted: $svc"
+}
+
+# svc_reload_daemon — reload systemd manager configuration
+svc_reload_daemon() {
+    sudo systemctl daemon-reload && _ok "Systemd daemon reloaded."
+    systemctl --user daemon-reload && _ok "User daemon reloaded."
+}
+
+# svc_logs — follow logs for a service
+# Usage: svc_logs <service> [--user] [--lines=50]
+svc_logs() {
+    [[ -z "$1" ]] && { _err "Usage: svc_logs <service> [--user]"; return 1; }
+    local svc="$1" user_flag="" lines=50
+    [[ "${2:-}" == "--user" ]] && user_flag="--user"
+    journalctl $user_flag -f -n "$lines" -u "$svc"
+}
+
+# svc_create_user — create a systemd user service from a template
+# Usage: svc_create_user <name> <exec_command> [description]
+svc_create_user() {
+    [[ $# -lt 2 ]] && { _err "Usage: svc_create_user <name> <exec> [desc]"; return 1; }
+    local name="$1" exec="$2" desc="${3:-$1 service}"
+    local unit_dir="$HOME/.config/systemd/user"
+    local unit_file="$unit_dir/${name}.service"
+    mkdir -p "$unit_dir"
+    cat > "$unit_file" <<EOF
+[Unit]
+Description=$desc
+After=default.target
+
+[Service]
+Type=simple
+ExecStart=$exec
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
+EOF
+    _ok "Created: $unit_file"
+    systemctl --user daemon-reload
+    _info "Enable with: svc_enable $name --user"
+}
+
+# svc_list_running — list all currently running services
+svc_list_running() {
+    _title "Running Services"
+    _section "System"
+    systemctl list-units --type=service --state=running
+    _section "User"
+    systemctl --user list-units --type=service --state=running
+}
+
+# svc_list_failed — list all failed services
+svc_list_failed() {
+    _title "Failed Services"
+    _section "System"
+    systemctl --failed
+    _section "User"
+    systemctl --user --failed
+}
+
+# svc_timer_list — list all systemd timers
+svc_timer_list() {
+    _title "Systemd Timers"
+    systemctl list-timers --all
+}
+
+
+# =============================================================================
+# 10. SECURITY & CRYPTOGRAPHY (sec_*)
+# =============================================================================
+
+# sec_ssh_keygen — generate an Ed25519 SSH key pair
+# Usage: sec_ssh_keygen [comment] [filename]
+sec_ssh_keygen() {
+    local comment="${1:-$(whoami)@$(hostname)}"
+    local fname="${2:-$HOME/.ssh/id_ed25519}"
+    ssh-keygen -t ed25519 -C "$comment" -f "$fname"
+    _ok "Key pair created: $fname"
+    _info "Public key:"
+    cat "${fname}.pub"
+}
+
+# sec_ssh_copy_id — copy SSH public key to a remote host
+# Usage: sec_ssh_copy_id <user@host> [keyfile]
+sec_ssh_copy_id() {
+    [[ -z "$1" ]] && { _err "Usage: sec_ssh_copy_id <user@host> [keyfile]"; return 1; }
+    local key="${2:-$HOME/.ssh/id_ed25519.pub}"
+    ssh-copy-id -i "$key" "$1" && _ok "Key copied to $1"
+}
+
+# sec_ssh_audit — audit SSH config for security issues
+sec_ssh_audit() {
+    _title "SSH Configuration Audit"
+    _section "Key Permissions"
+    find ~/.ssh -name '*.pub' -exec ls -la {} \;
+    find ~/.ssh -not -name '*.pub' -not -name 'known_hosts' -not -name 'config' \
+        -exec ls -la {} \;
+
+    _section "sshd_config security check (system)"
+    if [[ -f /etc/ssh/sshd_config ]]; then
+        grep -E 'PermitRootLogin|PasswordAuthentication|X11Forwarding|Protocol|PubkeyAuthentication|AuthorizedKeysFile' \
+            /etc/ssh/sshd_config | grep -v '^#'
+    fi
+}
+
+# sec_gpg_list — list GPG keys
+sec_gpg_list() {
+    _title "GPG Keys"
+    _section "Public Keys"
+    gpg --list-keys
+    _section "Secret Keys"
+    gpg --list-secret-keys
+}
+
+# sec_gpg_export — export a GPG public key
+# Usage: sec_gpg_export <key_id> [output_file]
+sec_gpg_export() {
+    [[ -z "$1" ]] && { _err "Usage: sec_gpg_export <key_id> [file]"; return 1; }
+    local file="${2:-${1}_public.gpg.asc}"
+    gpg --armor --export "$1" > "$file"
+    _ok "Exported to: $file"
+}
+
+# sec_gpg_sign_file — sign a file with GPG
+sec_gpg_sign_file() {
+    [[ -z "$1" ]] && { _err "Usage: sec_gpg_sign_file <file>"; return 1; }
+    gpg --armor --detach-sign "$1"
+    _ok "Signature: ${1}.asc"
+}
+
+# sec_gpg_verify — verify a GPG signature
+sec_gpg_verify() {
+    [[ $# -lt 2 ]] && { _err "Usage: sec_gpg_verify <file> <file.asc>"; return 1; }
+    gpg --verify "$2" "$1"
+}
+
+# sec_checksum — generate and verify checksums
+# Usage: sec_checksum <file> [algo=sha256]
+sec_checksum() {
+    [[ -z "$1" ]] && { _err "Usage: sec_checksum <file> [sha256|md5|sha512]"; return 1; }
+    local algo="${2:-sha256}"
+    "${algo}sum" "$1"
+}
+
+# sec_checksum_verify — verify a file against a checksum string
+# Usage: sec_checksum_verify <file> <expected_hash> [algo=sha256]
+sec_checksum_verify() {
+    [[ $# -lt 2 ]] && { _err "Usage: sec_checksum_verify <file> <hash> [algo]"; return 1; }
+    local file="$1" expected="$2" algo="${3:-sha256}"
+    local actual
+    actual=$("${algo}sum" "$file" | awk '{print $1}')
+    if [[ "$actual" == "$expected" ]]; then
+        _ok "Checksum matches: $algo"
+    else
+        _err "Checksum MISMATCH!"
+        _err "  Expected : $expected"
+        _err "  Actual   : $actual"
+        return 1
+    fi
+}
+
+# sec_audit_suid — audit SUID/SGID binaries on the system
+sec_audit_suid() {
+    _title "SUID / SGID Binaries"
+    sudo find / -xdev \( -perm -4000 -o -perm -2000 \) -type f 2>/dev/null | sort
+}
+
+# sec_pass_show — show passwords from pass store with tree
+sec_pass_show() {
+    _require pass
+    pass ls
+}
+
+# sec_env_secrets — check for potential secrets in environment variables
+sec_env_secrets() {
+    _title "Checking environment variables for potential secrets"
+    env | grep -iE 'key|secret|token|password|passwd|api|auth|credential|private' \
+        | sed 's/=.*/=<REDACTED>/'
+}
+
+
+# =============================================================================
+# 11. LOGGING & MONITORING (log_*)
+# =============================================================================
+
+# log_tail — tail logs with optional filter
+# Usage: log_tail [unit] [--user]
+log_tail() {
+    local user_flag=""
+    [[ "${2:-}" == "--user" ]] && user_flag="--user"
+    if [[ -n "$1" ]]; then
+        journalctl $user_flag -f -n 100 -u "$1"
+    else
+        journalctl $user_flag -f -n 100
+    fi
+}
+
+# log_errors — show recent errors from journal
+# Usage: log_errors [hours=1]
+log_errors() {
+    local hours="${1:-1}"
+    _title "Errors in the last ${hours}h"
+    journalctl -p err -xb --since="${hours} hours ago" --no-pager
+}
+
+# log_boot — full log for current boot
+log_boot() {
+    journalctl -b "${1:-0}" | less
+}
+
+# log_kernel — kernel ring buffer
+log_kernel() {
+    sudo dmesg --color=always | less
+}
+
+# log_kernel_watch — live kernel messages
+log_kernel_watch() {
+    sudo dmesg -w --color=always
+}
+
+# log_auth — authentication log
+log_auth() {
+    journalctl -u systemd-logind -u polkit -g 'auth\|login\|sudo\|pam' \
+        --since="${1:-24 hours ago}" --no-pager | less
+}
+
+# log_search — full-text search across journal
+# Usage: log_search <pattern> [--since="1 hour ago"]
+log_search() {
+    [[ -z "$1" ]] && { _err "Usage: log_search <pattern> [--since=...]"; return 1; }
+    local pattern="$1"; shift
+    journalctl -g "$pattern" "$@" --no-pager
+}
+
+# log_size — show journal disk usage
+log_size() {
+    journalctl --disk-usage
+}
+
+# log_monitor_cpu — log CPU stats to a file every N seconds
+# Usage: log_monitor_cpu [interval=5] [output=/tmp/cpu_log.txt]
+log_monitor_cpu() {
+    local interval="${1:-5}" out="${2:-/tmp/cpu_log_$(util_timestamp).txt}"
+    _info "Logging CPU stats every ${interval}s to $out  (Ctrl+C to stop)"
+    while true; do
+        echo "=== $(date --iso-8601=seconds) ===" >> "$out"
+        top -bn1 | head -5 >> "$out"
+        sleep "$interval"
+    done
+}
+
+
+# =============================================================================
+# 12. BACKUP & RESTORE (bak_*)
+# =============================================================================
+
+# bak_file — create a timestamped backup copy of a file
+bak_file() {
+    [[ -z "$1" ]] && { _err "Usage: bak_file <file>"; return 1; }
+    local src="$1"
+    [[ -e "$src" ]] || { _err "Not found: $src"; return 1; }
+    local dst="${src}.bak.$(util_timestamp)"
+    cp -a "$src" "$dst" && _ok "Backup: $dst"
+}
+
+# bak_dir — create a compressed backup of a directory
+# Usage: bak_dir <dir> [dest_dir=$HOME/backups]
+bak_dir() {
+    [[ -z "$1" ]] && { _err "Usage: bak_dir <dir> [dest]"; return 1; }
+    local src="${1%/}"
+    local dest="${2:-$HOME/backups}"
+    mkdir -p "$dest"
+    local name
+    name="$(basename "$src")_$(util_timestamp).tar.gz"
+    tar czvf "$dest/$name" "$src"
+    _ok "Backup: $dest/$name"
+    ls -lh "$dest/$name"
+}
+
+# bak_home_config — backup all XDG config and dotfiles
+bak_home_config() {
+    local dest="${1:-$HOME/backups}"
+    local name="home_config_$(util_timestamp).tar.gz"
+    mkdir -p "$dest"
+    _info "Backing up ~/.config, ~/.local/share, and dotfiles..."
+    tar czvf "$dest/$name" \
+        --exclude='~/.cache' \
+        --exclude='~/.local/share/Trash' \
+        --exclude='~/.local/share/containers' \
+        ~/.config \
+        ~/.local/share \
+        ~/.bashrc ~/.zshrc ~/.profile \
+        ~/.gitconfig ~/.ssh/config \
+        2>/dev/null
+    _ok "Config backup: $dest/$name"
+    ls -lh "$dest/$name"
+}
+
+# bak_pkg_list — save explicit package list for later restoration
+bak_pkg_list() {
+    local dest="${1:-$HOME/backups/pkglist_$(util_timestamp).txt}"
+    mkdir -p "$(dirname "$dest")"
+    pacman -Qe > "$dest"
+    _ok "Package list saved: $dest"
+    _info "Restore with: sudo pacman -S - < $dest"
+}
+
+# bak_pkg_list_restore — restore packages from a saved list
+bak_pkg_list_restore() {
+    [[ -z "$1" ]] && { _err "Usage: bak_pkg_list_restore <pkglist.txt>"; return 1; }
+    [[ -f "$1" ]] || { _err "File not found: $1"; return 1; }
+    _confirm "Install all packages from $1?" || return 1
+    sudo pacman -S --needed - < "$1"
+}
+
+# bak_rsync — rsync backup to a remote or local destination
+# Usage: bak_rsync <source> <dest>  (dest can be user@host:/path)
+bak_rsync() {
+    [[ $# -lt 2 ]] && { _err "Usage: bak_rsync <source> <dest>"; return 1; }
+    _require rsync
+    rsync -avzh --progress --delete --exclude='.cache/' \
+        --exclude='node_modules/' --exclude='__pycache__/' \
+        --exclude='target/' --exclude='.git/' \
+        "$1" "$2"
+}
+
+# bak_rsync_dry — dry-run rsync to preview what would change
+bak_rsync_dry() {
+    [[ $# -lt 2 ]] && { _err "Usage: bak_rsync_dry <source> <dest>"; return 1; }
+    _require rsync
+    rsync -avzh --dry-run --delete "$1" "$2"
+}
+
+
+# =============================================================================
+# 13. DEVELOPMENT ENVIRONMENT (dev_*)
+# =============================================================================
+
+# dev_info — show installed dev tool versions
+dev_info() {
+    _title "Development Environment"
+    local tools=(git gcc g++ clang make cmake python3 node npm rustc cargo go java docker)
+    for tool in "${tools[@]}"; do
+        if command -v "$tool" &>/dev/null; then
+            local ver
+            ver=$("$tool" --version 2>&1 | head -1)
+            printf "  ${_clr_green}%-12s${_clr_reset} %s\n" "$tool" "$ver"
+        else
+            printf "  ${_clr_red}%-12s${_clr_reset} not found\n" "$tool"
+        fi
+    done
+}
+
+# dev_init — scaffold a new project directory
+# Usage: dev_init <project-name> [type: rust|python|node|c|cpp|generic]
+dev_init() {
+    [[ -z "$1" ]] && { _err "Usage: dev_init <name> [rust|python|node|c|cpp|generic]"; return 1; }
+    local name="$1" type="${2:-generic}"
+    [[ -d "$name" ]] && { _err "Directory already exists: $name"; return 1; }
+
+    mkdir -p "$name" && cd "$name" || return 1
+    git init
+
+    case "$type" in
+        rust)
+            cargo init --name "$name" .
+            ;;
+        python)
+            mkdir -p src tests docs
+            touch "src/__init__.py" "tests/__init__.py"
+            python3 -m venv .venv
+            cat > pyproject.toml <<EOF
+[project]
+name = "$name"
+version = "0.1.0"
+requires-python = ">=3.11"
+EOF
+            cat > .gitignore <<'EOF'
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+EOF
+            ;;
+        node)
+            mkdir -p src tests
+            npm init -y
+            cat > .gitignore <<'EOF'
+node_modules/
+dist/
+.env
+*.log
+EOF
+            ;;
+        c|cpp)
+            mkdir -p src include tests build
+            cat > Makefile <<EOF
+CC = gcc
+CFLAGS = -Wall -Wextra -Wpedantic -O2 -g
+SRC = \$(wildcard src/*.c)
+OBJ = \$(SRC:src/%.c=build/%.o)
+BIN = build/$name
+
+all: \$(BIN)
+
+\$(BIN): \$(OBJ)
+	\$(CC) \$(CFLAGS) -o \$@ \$^
+
+build/%.o: src/%.c | build
+	\$(CC) \$(CFLAGS) -I include -c -o \$@ \$<
+
+build:
+	mkdir -p build
+
+clean:
+	rm -rf build
+
+.PHONY: all clean
+EOF
+            echo '#include <stdio.h>
+
+int main(void) {
+    printf("Hello, World!\n");
+    return 0;
+}' > "src/main.c"
+            ;;
+        generic|*)
+            mkdir -p src docs tests
+            ;;
+    esac
+
+    # Common files
+    cat > README.md <<EOF
+# $name
+
+## Overview
+
+## Getting Started
+
+## Development
+
+## License
+EOF
+
+    cat > .editorconfig <<'EOF'
+root = true
+
+[*]
+indent_style = space
+indent_size = 4
+end_of_line = lf
+charset = utf-8
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+[*.{yml,yaml,json,toml}]
+indent_size = 2
+
+[Makefile]
+indent_style = tab
+EOF
+
+    git add .
+    git commit -m "chore: initial project scaffold ($type)"
+    _ok "Project '$name' ($type) created and committed."
+}
+
+# dev_env_check — check for common dev environment issues
+dev_env_check() {
+    _title "Development Environment Health Check"
+
+    _section "Compiler toolchain"
+    for tool in gcc g++ clang cmake make; do
+        command -v "$tool" &>/dev/null && _ok "$tool found" || _warn "$tool not found"
+    done
+
+    _section "Version managers"
+    command -v nvm &>/dev/null && _ok "nvm: $(nvm --version 2>/dev/null)" || _warn "nvm not found"
+    command -v pyenv &>/dev/null && _ok "pyenv: $(pyenv --version 2>/dev/null)" || _warn "pyenv not found"
+    command -v rustup &>/dev/null && _ok "rustup: $(rustup --version 2>/dev/null)" || _warn "rustup not found"
+
+    _section "LSP / analysis tools"
+    for tool in clangd rust-analyzer pyright ruff mypy; do
+        command -v "$tool" &>/dev/null && _ok "$tool found" || _warn "$tool not found"
+    done
+
+    _section "Container tools"
+    for tool in docker podman kubectl helm; do
+        command -v "$tool" &>/dev/null && _ok "$tool found" || _warn "$tool not found"
+    done
+}
+
+# dev_lsp_install — install language servers for common languages
+dev_lsp_install() {
+    _title "Installing Language Servers"
+
+    _section "Lua (lua-language-server)"
+    pkg_install lua-language-server 2>/dev/null || _warn "install manually via pacman/yay"
+
+    _section "Rust (rust-analyzer via rustup)"
+    command -v rustup &>/dev/null && rustup component add rust-analyzer
+
+    _section "Python (pyright)"
+    pip install pyright --user 2>/dev/null
+
+    _section "Bash (bash-language-server)"
+    npm install -g bash-language-server 2>/dev/null
+
+    _section "C/C++ (clangd)"
+    pkg_install clang 2>/dev/null
+
+    _section "TypeScript/JS (typescript-language-server)"
+    npm install -g typescript typescript-language-server 2>/dev/null
+
+    _ok "LSP installation complete."
+}
+
+# dev_ctags — regenerate ctags for a project
+dev_ctags() {
+    _require ctags
+    ctags -R --exclude='.git' --exclude='node_modules' --exclude='target' \
+          --exclude='.venv' --exclude='build' .
+    _ok "ctags generated"
+}
+
+# dev_count_lines — count lines of code by language
+dev_count_lines() {
+    local path="${1:-.}"
+    if command -v tokei &>/dev/null; then
+        tokei "$path"
+    elif command -v cloc &>/dev/null; then
+        cloc "$path"
+    else
+        _info "Fallback: raw line count per extension"
+        find "$path" -type f -not -path '*/.git/*' -not -path '*/node_modules/*' \
+            -not -path '*/.venv/*' -not -path '*/target/*' | \
+            awk -F. '{print $NF}' | sort | uniq -c | sort -rn
+    fi
+}
+
+# dev_deps_check — check for outdated dependencies in various ecosystems
+dev_deps_check() {
+    _title "Outdated Dependencies"
+    if [[ -f Cargo.toml ]] && command -v cargo-outdated &>/dev/null; then
+        _section "Rust (cargo)"
+        cargo outdated
+    fi
+    if [[ -f package.json ]] && command -v npm &>/dev/null; then
+        _section "Node.js (npm)"
+        npm outdated 2>/dev/null
+    fi
+    if [[ -f requirements.txt ]] && command -v pip &>/dev/null; then
+        _section "Python (pip)"
+        pip list --outdated 2>/dev/null
+    fi
+    if [[ -f go.mod ]] && command -v go &>/dev/null; then
+        _section "Go"
+        go list -m -u all 2>/dev/null
+    fi
+}
+
+
+# =============================================================================
+# 14. GIT & VERSION CONTROL (git_*)
+# =============================================================================
+
+# git_status_all — git status for all repos in a directory tree
+# Usage: git_status_all [base_dir=~/Projects]
+git_status_all() {
+    local base="${1:-$HOME/Projects}"
+    _title "Git Status: all repos under $base"
+    while IFS= read -r repo; do
+        local dir
+        dir=$(dirname "$repo")
+        local status
+        status=$(git -C "$dir" status --porcelain 2>/dev/null)
+        local branch
+        branch=$(git -C "$dir" branch --show-current 2>/dev/null)
+        if [[ -n "$status" ]]; then
+            printf "  ${_clr_yellow}%-50s${_clr_reset} [%s] — dirty\n" "$dir" "$branch"
+        else
+            printf "  ${_clr_green}%-50s${_clr_reset} [%s] — clean\n" "$dir" "$branch"
+        fi
+    done < <(find "$base" -name '.git' -maxdepth 5 -type d | sort)
+}
+
+# git_pull_all — git pull for all repos under a directory
+git_pull_all() {
+    local base="${1:-$HOME/Projects}"
+    _title "Pulling all repos under $base"
+    while IFS= read -r gitdir; do
+        local dir
+        dir=$(dirname "$gitdir")
+        _info "Pulling: $dir"
+        git -C "$dir" pull --rebase --autostash 2>&1 | tail -3
+    done < <(find "$base" -name '.git' -maxdepth 5 -type d | sort)
+}
+
+# git_clean_branches — delete all local branches already merged into main/master
+git_clean_branches() {
+    local main
+    main=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@')
+    main="${main:-main}"
+    _title "Removing merged branches (base: $main)"
+    git branch --merged "$main" | grep -v "^\*\|$main\|master\|dev" | xargs -r git branch -d
+    _ok "Merged branches removed."
+}
+
+# git_undo_commit — undo the last commit, preserving changes in working tree
+git_undo_commit() {
+    git reset --soft HEAD~1 && _ok "Last commit undone. Changes are staged."
+}
+
+# git_undo_push — revert the last pushed commit (creates a revert commit)
+git_undo_push() {
+    _confirm "This will create a revert commit and push. Continue?" || return 1
+    git revert HEAD --no-edit
+    git push
+}
+
+# git_log_file — show full history of a specific file
+git_log_file() {
+    [[ -z "$1" ]] && { _err "Usage: git_log_file <file>"; return 1; }
+    git log --follow --all --oneline -p -- "$1"
+}
+
+# git_find_string — search entire git history for a string
+git_find_string() {
+    [[ -z "$1" ]] && { _err "Usage: git_find_string <string>"; return 1; }
+    git log --all --oneline --grep="$1"
+    git log --all --oneline -S "$1"
+}
+
+# git_stats — contributor statistics
+git_stats() {
+    _title "Repository Statistics"
+    _section "Commit count per author"
+    git shortlog -sn --all
+
+    _section "Files changed most often"
+    git log --all --name-only --format="" | grep -v '^$' | sort | uniq -c | sort -rn | head -20
+
+    _section "Lines of code by author"
+    git log --all --no-merges --author='.*' --format='%aN' | sort -u | while read -r author; do
+        printf "  %-30s  %d lines\n" "$author" \
+            "$(git log --all --no-merges --author="$author" --pretty=tformat: --numstat \
+               | awk '{add+=$1; del+=$2} END {print add-del}')"
+    done
+}
+
+# git_ignore_add — add pattern(s) to .gitignore
+git_ignore_add() {
+    [[ -z "$1" ]] && { _err "Usage: git_ignore_add <pattern> [...]"; return 1; }
+    local gitignore
+    gitignore="$(git rev-parse --show-toplevel 2>/dev/null)/.gitignore"
+    for pattern in "$@"; do
+        echo "$pattern" >> "$gitignore"
+        _ok "Added to .gitignore: $pattern"
+    done
+}
+
+# git_branch_diff — show diff between current branch and another
+git_branch_diff() {
+    local base="${1:-main}"
+    git diff "$base"...HEAD
+}
+
+# git_tag_release — create a signed annotated tag
+# Usage: git_tag_release <version> [message]
+git_tag_release() {
+    [[ -z "$1" ]] && { _err "Usage: git_tag_release <v1.0.0> [message]"; return 1; }
+    local tag="$1" msg="${2:-Release $1}"
+    git tag -s "$tag" -m "$msg"
+    _ok "Tag created: $tag"
+    _info "Push with: git push origin $tag"
+}
+
+# git_worktree_add — add a git worktree for a branch
+git_worktree_add() {
+    [[ -z "$1" ]] && { _err "Usage: git_worktree_add <branch> [path]"; return 1; }
+    local branch="$1"
+    local path="${2:-../${branch//\//-}}"
+    git worktree add "$path" "$branch"
+    _ok "Worktree added: $path"
+}
+
+# git_submodule_sync — update all submodules to latest
+git_submodule_sync() {
+    git submodule update --init --recursive --remote
+    _ok "Submodules updated."
+}
+
+
+# =============================================================================
+# 15. BUILD SYSTEMS (build_*)
+# =============================================================================
+
+# build_cmake_debug — configure and build a CMake project (Debug)
+build_cmake_debug() {
+    local build_dir="${1:-build/debug}"
+    mkdir -p "$build_dir"
+    cmake -B "$build_dir" -DCMAKE_BUILD_TYPE=Debug \
+          -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+          -G Ninja
+    cmake --build "$build_dir" -j "$(nproc)"
+}
+
+# build_cmake_release — configure and build a CMake project (Release)
+build_cmake_release() {
+    local build_dir="${1:-build/release}"
+    mkdir -p "$build_dir"
+    cmake -B "$build_dir" -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+          -G Ninja
+    cmake --build "$build_dir" -j "$(nproc)"
+}
+
+# build_cmake_clean — remove all cmake build artifacts
+build_cmake_clean() {
+    _confirm "Remove build/ directory?" || return 1
+    rm -rf build/ CMakeCache.txt CMakeFiles/ cmake_install.cmake Makefile
+    _ok "CMake artifacts removed."
+}
+
+# build_make_parallel — run make with all available cores
+build_make_parallel() {
+    make -j"$(nproc)" "$@"
+}
+
+# build_compile_db — generate compile_commands.json for LSP (clangd)
+# Works with cmake or bear+make
+build_compile_db() {
+    if [[ -f CMakeLists.txt ]]; then
+        _info "CMake project detected."
+        build_cmake_debug
+        ln -sf build/debug/compile_commands.json . 2>/dev/null
+        _ok "Linked compile_commands.json from cmake build."
+    elif [[ -f Makefile ]] && command -v bear &>/dev/null; then
+        _info "Makefile project — using bear"
+        bear -- make -j"$(nproc)"
+        _ok "compile_commands.json generated."
+    else
+        _err "Cannot generate compile_commands.json: no CMakeLists.txt or Makefile+bear."
+    fi
+}
+
+# build_asan — build with AddressSanitizer (GCC/Clang)
+build_asan() {
+    local build_dir="build/asan"
+    mkdir -p "$build_dir"
+    cmake -B "$build_dir" \
+          -DCMAKE_BUILD_TYPE=Debug \
+          -DCMAKE_C_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer" \
+          -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined" \
+          -G Ninja
+    cmake --build "$build_dir" -j "$(nproc)"
+    _ok "ASan build ready in $build_dir/"
+}
+
+# build_strip_binary — strip debug symbols from a binary
+build_strip_binary() {
+    [[ -z "$1" ]] && { _err "Usage: build_strip_binary <binary>"; return 1; }
+    local orig_size
+    orig_size=$(stat -c%s "$1")
+    strip "$1"
+    local new_size
+    new_size=$(stat -c%s "$1")
+    _ok "Stripped $1: $orig_size → $new_size bytes"
+}
+
+
+# =============================================================================
+# 16. CONTAINER & VIRTUALISATION (ctr_*)
+# =============================================================================
+
+# ctr_docker_clean — remove stopped containers, dangling images, unused volumes
+ctr_docker_clean() {
+    _require docker
+    _title "Docker Cleanup"
+    _section "Stopped containers"
+    docker container prune -f
+    _section "Dangling images"
+    docker image prune -f
+    _section "Unused volumes"
+    docker volume prune -f
+    _section "Unused networks"
+    docker network prune -f
+    _ok "Docker cleaned."
+}
+
+# ctr_docker_shell — drop into a running container
+# Usage: ctr_docker_shell <container> [shell=bash]
+ctr_docker_shell() {
+    [[ -z "$1" ]] && { _err "Usage: ctr_docker_shell <container> [shell]"; return 1; }
+    local shell="${2:-bash}"
+    docker exec -it "$1" "$shell" || docker exec -it "$1" sh
+}
+
+# ctr_docker_logs_all — stream logs from all running containers
+ctr_docker_logs_all() {
+    _require docker
+    for container in $(docker ps --format '{{.Names}}'); do
+        _info "=== $container ==="
+        docker logs --tail=20 "$container"
+    done
+}
+
+# ctr_docker_ip — show IP addresses of all running containers
+ctr_docker_ip() {
+    _require docker
+    docker inspect --format '{{.Name}} {{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' \
+        $(docker ps -q) | column -t
+}
+
+# ctr_docker_stats — live resource stats for all containers
+ctr_docker_stats() {
+    docker stats
+}
+
+# ctr_compose_up — bring up a compose project (build if needed)
+ctr_compose_up() {
+    local compose_file="${1:-docker-compose.yml}"
+    docker compose -f "$compose_file" up -d --build
+    _ok "Compose project started."
+}
+
+# ctr_compose_down — bring down a compose project (remove volumes optionally)
+ctr_compose_down() {
+    local compose_file="${1:-docker-compose.yml}"
+    docker compose -f "$compose_file" down
+    _ok "Compose project stopped."
+}
+
+# ctr_nspawn — start a systemd-nspawn container (Arch chroot)
+# Usage: ctr_nspawn <container_dir>
+ctr_nspawn() {
+    [[ -z "$1" ]] && { _err "Usage: ctr_nspawn <container_dir>"; return 1; }
+    sudo systemd-nspawn -D "$1" --machine "$(basename "$1")"
+}
+
+# ctr_vm_list — list libvirt VMs
+ctr_vm_list() {
+    _require virsh
+    virsh list --all
+}
+
+# ctr_vm_start — start a libvirt VM
+ctr_vm_start() {
+    [[ -z "$1" ]] && { _err "Usage: ctr_vm_start <name>"; return 1; }
+    virsh start "$1"
+}
+
+# ctr_vm_ssh — SSH into a libvirt VM by name
+ctr_vm_ssh() {
+    _require virsh
+    [[ -z "$1" ]] && { _err "Usage: ctr_vm_ssh <vm_name> [user]"; return 1; }
+    local user="${2:-$(whoami)}"
+    local ip
+    ip=$(virsh domifaddr "$1" 2>/dev/null | awk '/ipv4/{print $4}' | cut -d'/' -f1)
+    [[ -z "$ip" ]] && { _err "Could not get IP for VM: $1"; return 1; }
+    ssh "${user}@${ip}"
+}
+
+
+# =============================================================================
+# 17. PYTHON & VIRTUAL ENVIRONMENTS (py_*)
+# =============================================================================
+
+# py_venv_create — create a virtual environment and activate it
+# Usage: py_venv_create [path=.venv]
+py_venv_create() {
+    local venv="${1:-.venv}"
+    python3 -m venv "$venv"
+    # shellcheck source=/dev/null
+    source "$venv/bin/activate"
+    pip install --upgrade pip setuptools wheel
+    _ok "Virtualenv created and activated: $venv"
+}
+
+# py_venv_activate — activate venv in current directory (searches common names)
+py_venv_activate() {
+    local candidates=(.venv venv env .env)
+    for d in "${candidates[@]}"; do
+        if [[ -f "$d/bin/activate" ]]; then
+            # shellcheck source=/dev/null
+            source "$d/bin/activate"
+            _ok "Activated: $d"
+            return 0
+        fi
+    done
+    _err "No virtual environment found in current directory."
+}
+
+# py_venv_clean — remove virtual environment
+py_venv_clean() {
+    local venv="${1:-.venv}"
+    _confirm "Remove virtual environment: $venv?" || return 1
+    rm -rf "$venv"
+    _ok "Removed: $venv"
+}
+
+# py_deps_freeze — freeze current environment to requirements.txt
+py_deps_freeze() {
+    local out="${1:-requirements.txt}"
+    pip freeze > "$out"
+    _ok "Saved: $out  ($(wc -l < "$out") packages)"
+}
+
+# py_deps_install — install from requirements file
+py_deps_install() {
+    local req="${1:-requirements.txt}"
+    [[ -f "$req" ]] || { _err "Not found: $req"; return 1; }
+    pip install -r "$req"
+}
+
+# py_deps_outdated — show outdated packages
+py_deps_outdated() {
+    pip list --outdated --format=columns
+}
+
+# py_deps_upgrade_all — upgrade all packages in current environment
+py_deps_upgrade_all() {
+    _confirm "Upgrade all installed pip packages?" || return 1
+    pip list --outdated --format=json | \
+        python3 -c "import json,sys; [print(p['name']) for p in json.load(sys.stdin)]" | \
+        xargs pip install --upgrade
+}
+
+# py_format — format Python code with black + isort
+py_format() {
+    local path="${1:-.}"
+    if command -v black &>/dev/null; then
+        black "$path"
+    elif command -v ruff &>/dev/null; then
+        ruff format "$path"
+    fi
+    if command -v isort &>/dev/null; then
+        isort "$path"
+    fi
+    _ok "Formatting done."
+}
+
+# py_lint — run ruff (or flake8) linter
+py_lint() {
+    local path="${1:-.}"
+    if command -v ruff &>/dev/null; then
+        ruff check "$path"
+    elif command -v flake8 &>/dev/null; then
+        flake8 "$path"
+    else
+        _warn "No Python linter found (install ruff: pip install ruff)"
+    fi
+}
+
+# py_type_check — run mypy type checking
+py_type_check() {
+    local path="${1:-.}"
+    _require mypy
+    mypy "$path" --ignore-missing-imports
+}
+
+# py_test — run pytest with verbose output
+py_test() {
+    _require pytest
+    pytest -v "${@:-.}"
+}
+
+# py_test_coverage — run tests with coverage report
+py_test_coverage() {
+    _require pytest
+    _require coverage
+    coverage run -m pytest "${@:-.}"
+    coverage report -m
+    coverage html
+    _info "HTML report: htmlcov/index.html"
+}
+
+# py_profile — profile a Python script
+py_profile() {
+    [[ -z "$1" ]] && { _err "Usage: py_profile <script.py>"; return 1; }
+    python3 -m cProfile -s cumulative "$1" 2>&1 | head -30
+}
+
+# py_build_dist — build distribution packages (wheel + sdist)
+py_build_dist() {
+    _require python3
+    python3 -m build
+    _ok "Build complete. Packages in dist/"
+}
+
+# py_check_security — audit dependencies with pip-audit
+py_check_security() {
+    if command -v pip-audit &>/dev/null; then
+        pip-audit
+    elif command -v safety &>/dev/null; then
+        safety check
+    else
+        _warn "Install pip-audit: pip install pip-audit"
+    fi
+}
+
+
+# =============================================================================
+# 18. RUST / CARGO (rust_*)
+# =============================================================================
+
+# rust_new — create a new Rust project with recommended structure
+# Usage: rust_new <name> [--lib]
+rust_new() {
+    [[ -z "$1" ]] && { _err "Usage: rust_new <name> [--lib]"; return 1; }
+    local name="$1" flag="${2:-}"
+    if [[ "$flag" == "--lib" ]]; then
+        cargo new --lib "$name"
+    else
+        cargo new "$name"
+    fi
+    cd "$name" || return 1
+
+    # Add useful dev dependencies
+    cat >> Cargo.toml <<'EOF'
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+
+[profile.dev]
+opt-level = 0
+debug = true
+EOF
+
+    _ok "Rust project created: $name"
+}
+
+# rust_build_release — build with release profile, report binary size
+rust_build_release() {
+    cargo build --release && {
+        local name
+        name=$(grep '^name' Cargo.toml | head -1 | awk -F'"' '{print $2}')
+        local bin="target/release/$name"
+        [[ -f "$bin" ]] && ls -lh "$bin"
+    }
+}
+
+# rust_check_all — check + clippy + fmt check
+rust_check_all() {
+    _title "Rust Quality Checks"
+    _section "cargo check"
+    cargo check --all-targets
+    _section "cargo clippy"
+    cargo clippy --all-targets -- -D warnings
+    _section "cargo fmt"
+    cargo fmt --all -- --check
+    _ok "All checks passed."
+}
+
+# rust_fix_all — fix lints + format in place
+rust_fix_all() {
+    cargo clippy --fix --allow-dirty --allow-staged
+    cargo fmt --all
+    _ok "Fixes and formatting applied."
+}
+
+# rust_test_all — run all tests with output
+rust_test_all() {
+    cargo test --all -- --nocapture
+}
+
+# rust_bench — run benchmarks
+rust_bench() {
+    cargo bench "${@:-}"
+}
+
+# rust_doc_open — build and open documentation
+rust_doc_open() {
+    cargo doc --open --no-deps
+}
+
+# rust_deps_audit — security audit of dependencies
+rust_deps_audit() {
+    if command -v cargo-audit &>/dev/null; then
+        cargo audit
+    else
+        _warn "Install: cargo install cargo-audit"
+    fi
+}
+
+# rust_deps_outdated — show outdated dependencies
+rust_deps_outdated() {
+    if command -v cargo-outdated &>/dev/null; then
+        cargo outdated
+    else
+        _warn "Install: cargo install cargo-outdated"
+    fi
+}
+
+# rust_toolchain_update — update all rustup toolchains
+rust_toolchain_update() {
+    rustup update
+    rustup component add clippy rustfmt rust-analyzer rust-src
+    _ok "Rust toolchain updated."
+}
+
+# rust_cross_list — list available cross-compilation targets
+rust_cross_list() {
+    rustup target list | grep installed
+}
+
+# rust_cross_add — add a compilation target
+# Usage: rust_cross_add <target>  e.g. x86_64-unknown-linux-musl
+rust_cross_add() {
+    [[ -z "$1" ]] && { _err "Usage: rust_cross_add <target>"; return 1; }
+    rustup target add "$1"
+}
+
+# rust_size_report — show section sizes of release binary
+rust_size_report() {
+    cargo build --release
+    local name
+    name=$(grep '^name' Cargo.toml | head -1 | awk -F'"' '{print $2}')
+    size "target/release/$name"
+}
+
+# rust_flamegraph — profile and generate flamegraph
+rust_flamegraph() {
+    if command -v cargo-flamegraph &>/dev/null; then
+        cargo flamegraph
+        _ok "Flamegraph saved: flamegraph.svg"
+    else
+        _warn "Install: cargo install flamegraph (also needs perf)"
+    fi
+}
+
+
+# =============================================================================
+# 19. NODE.JS / JAVASCRIPT (node_*)
+# =============================================================================
+
+# node_use — switch node version using nvm
+node_use() {
+    [[ -z "$1" ]] && { _err "Usage: node_use <version|lts>"; return 1; }
+    # shellcheck source=/dev/null
+    [[ -f "$NVM_DIR/nvm.sh" ]] && source "$NVM_DIR/nvm.sh"
+    nvm use "$1"
+}
+
+# node_install_lts — install latest LTS Node.js via nvm
+node_install_lts() {
+    # shellcheck source=/dev/null
+    [[ -f "$NVM_DIR/nvm.sh" ]] && source "$NVM_DIR/nvm.sh"
+    nvm install --lts
+    nvm use --lts
+    nvm alias default node
+}
+
+# node_deps_audit — run npm audit and attempt auto-fix
+node_deps_audit() {
+    npm audit
+}
+
+# node_deps_outdated — list outdated npm packages
+node_deps_outdated() {
+    npm outdated
+}
+
+# node_clean — remove node_modules and reinstall
+node_clean() {
+    _confirm "Remove node_modules and reinstall?" || return 1
+    rm -rf node_modules package-lock.json
+    npm install
+    _ok "Dependencies reinstalled."
+}
+
+# node_scripts — list available npm scripts
+node_scripts() {
+    [[ -f package.json ]] || { _err "No package.json in current directory."; return 1; }
+    python3 -c "
+import json
+with open('package.json') as f:
+    pkg = json.load(f)
+scripts = pkg.get('scripts', {})
+print(f'  {len(scripts)} script(s) in package.json:')
+for k,v in scripts.items():
+    print(f'  {k:20s} : {v}')
+"
+}
+
+# node_global_list — list globally installed npm packages
+node_global_list() {
+    npm list -g --depth=0
+}
+
+# node_global_update — update all global npm packages
+node_global_update() {
+    npm update -g
+}
+
+
+# =============================================================================
+# 20. AI & LLM DEVELOPMENT (ai_*)
+# =============================================================================
+
+# ai_env_setup — set up a Python AI/ML development environment
+# Usage: ai_env_setup [venv_path=.venv]
+ai_env_setup() {
+    local venv="${1:-.venv}"
+    _title "AI/ML Environment Setup"
+
+    py_venv_create "$venv"
+
+    _section "Core ML / AI packages"
+    pip install --upgrade \
+        torch torchvision torchaudio \
+        --index-url https://download.pytorch.org/whl/cpu  # use cu121 for CUDA
+
+    _section "LLM / inference libraries"
+    pip install --upgrade \
+        transformers \
+        accelerate \
+        datasets \
+        tokenizers \
+        peft \
+        trl
+
+    _section "OpenAI / Anthropic SDK"
+    pip install --upgrade \
+        openai \
+        anthropic
+
+    _section "LangChain ecosystem"
+    pip install --upgrade \
+        langchain \
+        langchain-community \
+        langchain-core
+
+    _section "Vector stores and embedding tools"
+    pip install --upgrade \
+        chromadb \
+        faiss-cpu \
+        sentence-transformers
+
+    _section "Data and utility"
+    pip install --upgrade \
+        numpy pandas scipy scikit-learn \
+        matplotlib seaborn plotly \
+        jupyterlab \
+        ipywidgets \
+        rich tqdm loguru
+
+    _section "Code quality tools"
+    pip install --upgrade ruff black mypy pytest
+
+    pip freeze > requirements-ai.txt
+    _ok "AI environment set up. Requirements saved to requirements-ai.txt"
+}
+
+# ai_gpu_info — show GPU info for ML workloads
+ai_gpu_info() {
+    _title "GPU / Compute Information"
+    if command -v nvidia-smi &>/dev/null; then
+        _section "NVIDIA GPU"
+        nvidia-smi
+        _section "CUDA Version"
+        nvcc --version 2>/dev/null || _warn "CUDA not found (nvcc not in PATH)"
+    fi
+    if [[ -f /sys/class/drm/card0/device/vendor ]]; then
+        local vendor
+        vendor=$(cat /sys/class/drm/card0/device/vendor 2>/dev/null)
+        [[ "$vendor" == "0x1002" ]] && {
+            _section "AMD GPU (ROCm)"
+            rocm-smi 2>/dev/null || _warn "rocm-smi not found"
+        }
+    fi
+    _section "Python GPU libraries"
+    python3 -c "
+try:
+    import torch
+    print(f'  PyTorch {torch.__version__}')
+    print(f'  CUDA available: {torch.cuda.is_available()}')
+    if torch.cuda.is_available():
+        print(f'  GPU: {torch.cuda.get_device_name(0)}')
+        print(f'  VRAM: {torch.cuda.get_device_properties(0).total_memory/1024**3:.1f} GB')
+except ImportError:
+    print('  PyTorch not installed')
+try:
+    import tensorflow as tf
+    print(f'  TensorFlow {tf.__version__}')
+    print(f'  GPU devices: {tf.config.list_physical_devices(\"GPU\")}')
+except ImportError:
+    print('  TensorFlow not installed')
+" 2>/dev/null
+}
+
+# ai_ollama_serve — start Ollama server as a background user service
+ai_ollama_serve() {
+    _require ollama
+    if pgrep -x ollama &>/dev/null; then
+        _ok "Ollama is already running."
+    else
+        ollama serve &
+        disown
+        sleep 1
+        _ok "Ollama started (PID: $(pgrep -x ollama))"
+    fi
+}
+
+# ai_ollama_pull — pull an Ollama model
+# Usage: ai_ollama_pull <model>  e.g. llama3.2 mistral codellama
+ai_ollama_pull() {
+    _require ollama
+    [[ -z "$1" ]] && { _err "Usage: ai_ollama_pull <model>"; return 1; }
+    ollama pull "$1"
+}
+
+# ai_ollama_list — list downloaded Ollama models
+ai_ollama_list() {
+    _require ollama
+    ollama list
+}
+
+# ai_ollama_run — run an Ollama model interactively
+ai_ollama_run() {
+    _require ollama
+    local model="${1:-llama3.2}"
+    ai_ollama_serve 2>/dev/null
+    _info "Starting chat with: $model"
+    ollama run "$model"
+}
+
+# ai_ollama_api — query Ollama REST API
+# Usage: ai_ollama_api <model> <prompt>
+ai_ollama_api() {
+    [[ $# -lt 2 ]] && { _err "Usage: ai_ollama_api <model> <prompt>"; return 1; }
+    local model="$1" prompt="$2"
+    curl -s http://localhost:11434/api/generate \
+         -H 'Content-Type: application/json' \
+         -d "{\"model\": \"$model\", \"prompt\": \"$prompt\", \"stream\": false}" \
+        | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('response',''))"
+}
+
+# ai_jupyter — start JupyterLab in the current directory
+ai_jupyter() {
+    _require jupyter
+    local port="${1:-8888}"
+    _info "Starting JupyterLab on port $port..."
+    jupyter lab --port="$port" --no-browser &
+    sleep 2
+    _ok "JupyterLab running. PID: $!"
+    _info "URL: http://localhost:$port"
+}
+
+# ai_jupyter_stop — stop JupyterLab servers
+ai_jupyter_stop() {
+    jupyter notebook stop 2>/dev/null
+    pkill -f "jupyter" && _ok "Jupyter processes stopped."
+}
+
+# ai_token_count — estimate token count for a file or stdin
+# (rough approximation: ~4 chars per token for English text)
+ai_token_count() {
+    local text
+    if [[ -n "$1" ]]; then
+        text=$(cat "$1")
+    else
+        text=$(cat)
+    fi
+    local chars=${#text}
+    local tokens=$(( chars / 4 ))
+    local words
+    words=$(echo "$text" | wc -w)
+    _info "Characters : $chars"
+    _info "Words      : $words"
+    _info "Est. tokens: ~$tokens  (GPT/Claude ~4 chars/token)"
+}
+
+# ai_context_size — show context window usage for a directory of files
+# Usage: ai_context_size [path=.] [--ext=.py,.rs,.ts]
+ai_context_size() {
+    local path="${1:-.}"
+    local total_chars=0 total_files=0
+    while IFS= read -r f; do
+        local size
+        size=$(wc -c < "$f" 2>/dev/null || echo 0)
+        (( total_chars += size ))
+        (( total_files++ ))
+    done < <(find "$path" -type f \
+        \( -name "*.py" -o -name "*.rs" -o -name "*.ts" -o -name "*.js" \
+           -o -name "*.go" -o -name "*.c" -o -name "*.cpp" -o -name "*.h" \
+           -o -name "*.lua" -o -name "*.sh" -o -name "*.md" \) \
+        -not -path '*/.git/*' -not -path '*/node_modules/*' \
+        -not -path '*/.venv/*' -not -path '*/target/*')
+
+    local est_tokens=$(( total_chars / 4 ))
+    _title "AI Context Size Estimate: $path"
+    printf "  Files     : %d\n" "$total_files"
+    printf "  Characters: %d\n" "$total_chars"
+    printf "  Est. tokens: ~%d\n" "$est_tokens"
+    echo ""
+    _section "Context window comparison"
+    printf "  GPT-4       128k  — %s\n" "$(python3 -c "t=$est_tokens; print(f'{t/128000*100:.1f}%% used ({128000-t:,} remaining)')" 2>/dev/null)"
+    printf "  Claude 3.5  200k  — %s\n" "$(python3 -c "t=$est_tokens; print(f'{t/200000*100:.1f}%% used ({200000-t:,} remaining)')" 2>/dev/null)"
+    printf "  Gemini 1.5 1000k  — %s\n" "$(python3 -c "t=$est_tokens; print(f'{t/1000000*100:.1f}%% used ({1000000-t:,} remaining)')" 2>/dev/null)"
+}
+
+# ai_model_benchmark — time a model response via Ollama for latency benchmarking
+# Usage: ai_model_benchmark <model> [prompt]
+ai_model_benchmark() {
+    _require ollama
+    local model="${1:-llama3.2}"
+    local prompt="${2:-Write a hello world function in Python.}"
+    _info "Benchmarking model: $model"
+    local start end elapsed
+    start=$(date +%s%N)
+    ollama run "$model" "$prompt" > /dev/null
+    end=$(date +%s%N)
+    elapsed=$(( (end - start) / 1000000 ))
+    _ok "Response time: ${elapsed}ms (${model})"
+}
+
+# ai_env_check — verify AI dev tools are installed
+ai_env_check() {
+    _title "AI Development Environment Check"
+    local tools=(python3 pip jupyter ollama nvcc nvidia-smi)
+    for tool in "${tools[@]}"; do
+        command -v "$tool" &>/dev/null \
+            && _ok "$tool: $(command -v "$tool")" \
+            || _warn "$tool: not found"
+    done
+    _section "Python AI libraries"
+    python3 -c "
+libs = ['torch','transformers','langchain','openai','anthropic',
+        'chromadb','sentence_transformers','numpy','pandas','sklearn']
+for lib in libs:
+    try:
+        m = __import__(lib)
+        ver = getattr(m, '__version__', '?')
+        print(f'  \033[0;32m✔\033[0m  {lib:<30} {ver}')
+    except ImportError:
+        print(f'  \033[0;31m✘\033[0m  {lib}')
+" 2>/dev/null
+}
+
+# ai_rag_prepare — prepare a directory for RAG (chunk and tokenize text files)
+# Saves chunked text to .rag_chunks/ for embedding
+# Usage: ai_rag_prepare [source_dir=.] [chunk_size=500]
+ai_rag_prepare() {
+    _require python3
+    local src="${1:-.}" chunk="${2:-500}"
+    local out=".rag_chunks"
+    mkdir -p "$out"
+    _info "Preparing RAG chunks from $src (chunk_size=$chunk words)..."
+    python3 <<PYEOF
+import os, re, pathlib
+
+source_dir = "$src"
+chunk_size = $chunk
+out_dir = "$out"
+chunk_num = 0
+
+exts = {'.py','.rs','.ts','.js','.go','.c','.cpp','.h','.md','.txt','.lua','.sh'}
+
+for path in pathlib.Path(source_dir).rglob('*'):
+    if path.suffix.lower() not in exts: continue
+    if any(p in str(path) for p in ['.git','node_modules','.venv','target']): continue
+    try:
+        text = path.read_text(errors='replace')
+    except Exception:
+        continue
+    words = text.split()
+    for i in range(0, len(words), chunk_size):
+        chunk_text = ' '.join(words[i:i+chunk_size])
+        chunk_file = os.path.join(out_dir, f'chunk_{chunk_num:06d}.txt')
+        meta_file  = os.path.join(out_dir, f'chunk_{chunk_num:06d}.meta')
+        pathlib.Path(chunk_file).write_text(chunk_text)
+        pathlib.Path(meta_file).write_text(f'source: {path}\nword_start: {i}\n')
+        chunk_num += 1
+
+print(f'  Created {chunk_num} chunks in {out_dir}/')
+PYEOF
+    _ok "RAG preparation done. Chunks in $out/"
+}
+
+
+# =============================================================================
+# 21. DATABASE (db_*)
+# =============================================================================
+
+# db_pg_connect — connect to a PostgreSQL database
+# Usage: db_pg_connect [dbname] [user] [host]
+db_pg_connect() {
+    local db="${1:-postgres}" user="${2:-$USER}" host="${3:-localhost}"
+    psql -h "$host" -U "$user" -d "$db"
+}
+
+# db_pg_dump — dump a PostgreSQL database
+# Usage: db_pg_dump <dbname> [outfile] [user]
+db_pg_dump() {
+    [[ -z "$1" ]] && { _err "Usage: db_pg_dump <dbname> [outfile] [user]"; return 1; }
+    local db="$1"
+    local out="${2:-${db}_$(util_timestamp).sql}"
+    local user="${3:-$USER}"
+    pg_dump -U "$user" "$db" > "$out"
+    _ok "Dump saved: $out  ($(du -sh "$out" | cut -f1))"
+}
+
+# db_pg_restore — restore a PostgreSQL dump
+db_pg_restore() {
+    [[ $# -lt 2 ]] && { _err "Usage: db_pg_restore <file.sql> <dbname>"; return 1; }
+    psql -U "${3:-$USER}" "$2" < "$1"
+    _ok "Restored $1 into $2"
+}
+
+# db_sqlite_shell — open a SQLite database
+db_sqlite_shell() {
+    [[ -z "$1" ]] && { _err "Usage: db_sqlite_shell <file.db>"; return 1; }
+    sqlite3 "$1"
+}
+
+# db_sqlite_dump — dump all tables from a SQLite database
+db_sqlite_dump() {
+    [[ -z "$1" ]] && { _err "Usage: db_sqlite_dump <file.db>"; return 1; }
+    local out="${2:-${1%.db}_$(util_timestamp).sql}"
+    sqlite3 "$1" .dump > "$out"
+    _ok "Dump: $out"
+}
+
+# db_redis_cli — connect to local Redis
+db_redis_cli() {
+    _require redis-cli
+    local host="${1:-127.0.0.1}" port="${2:-6379}"
+    redis-cli -h "$host" -p "$port"
+}
+
+# db_redis_flush — flush all Redis keys (DANGEROUS)
+db_redis_flush() {
+    _require redis-cli
+    _confirm "This will FLUSH ALL Redis data on localhost. Continue?" || return 1
+    redis-cli FLUSHALL
+    _ok "Redis flushed."
+}
+
+
+# =============================================================================
+# 22. DOTFILE MANAGEMENT (dots_*)
+# =============================================================================
+
+# dots_init_bare — initialise a bare git dotfile repo
+dots_init_bare() {
+    local repo="${1:-$HOME/.dotfiles}"
+    git init --bare "$repo"
+    cat >> ~/.bashrc <<EOF
+
+# Dotfiles bare git repo
+alias dots='git --git-dir=$repo --work-tree=\$HOME'
+EOF
+    git --git-dir="$repo" --work-tree="$HOME" config status.showUntrackedFiles no
+    _ok "Bare dotfile repo initialised: $repo"
+    _ok "Use 'dots' alias to manage dotfiles."
+    _info "Example: dots add ~/.bashrc && dots commit -m 'Add bashrc'"
+}
+
+# dots_status — git status of dotfile repo
+dots_status() {
+    local repo="${DOTFILES_REPO:-$HOME/.dotfiles}"
+    git --git-dir="$repo" --work-tree="$HOME" status -sb
+}
+
+# dots_add — stage a dotfile
+dots_add() {
+    [[ -z "$1" ]] && { _err "Usage: dots_add <file>"; return 1; }
+    local repo="${DOTFILES_REPO:-$HOME/.dotfiles}"
+    git --git-dir="$repo" --work-tree="$HOME" add "$1"
+    _ok "Staged: $1"
+}
+
+# dots_commit — commit staged dotfiles
+dots_commit() {
+    local msg="${1:-Update dotfiles $(util_iso8601)}"
+    local repo="${DOTFILES_REPO:-$HOME/.dotfiles}"
+    git --git-dir="$repo" --work-tree="$HOME" commit -m "$msg"
+}
+
+# dots_push — push dotfiles to remote
+dots_push() {
+    local repo="${DOTFILES_REPO:-$HOME/.dotfiles}"
+    git --git-dir="$repo" --work-tree="$HOME" push
+}
+
+# dots_log — log of dotfile commits
+dots_log() {
+    local repo="${DOTFILES_REPO:-$HOME/.dotfiles}"
+    git --git-dir="$repo" --work-tree="$HOME" log --oneline --graph --decorate
+}
+
+# dots_stow_apply — apply a GNU Stow package from dotfiles dir
+# Usage: dots_stow_apply <package>  (e.g. nvim, zsh, git)
+dots_stow_apply() {
+    _require stow
+    local dots_dir="${DOTFILES_DIR:-$HOME/.dotfiles}"
+    [[ -z "$1" ]] && { _err "Usage: dots_stow_apply <package>"; return 1; }
+    stow --target="$HOME" --dir="$dots_dir" --restow "$1"
+    _ok "Stowed: $1"
+}
+
+# dots_stow_remove — remove symlinks for a stow package
+dots_stow_remove() {
+    _require stow
+    local dots_dir="${DOTFILES_DIR:-$HOME/.dotfiles}"
+    [[ -z "$1" ]] && { _err "Usage: dots_stow_remove <package>"; return 1; }
+    stow --target="$HOME" --dir="$dots_dir" --delete "$1"
+    _ok "Unstowed: $1"
+}
+
+# dots_stow_apply_all — apply all packages in dotfiles directory
+dots_stow_apply_all() {
+    _require stow
+    local dots_dir="${DOTFILES_DIR:-$HOME/.dotfiles}"
+    _title "Stowing all packages in $dots_dir"
+    for pkg in "$dots_dir"/*/; do
+        local name
+        name=$(basename "$pkg")
+        stow --target="$HOME" --dir="$dots_dir" --restow "$name" \
+            && _ok "Stowed: $name" \
+            || _warn "Skipped: $name (conflict)"
+    done
+}
+
+# dots_check_broken — find broken symlinks in home directory
+dots_check_broken() {
+    _title "Broken Symlinks in ~"
+    find ~ -maxdepth 5 -xtype l -not -path '*/.git/*' 2>/dev/null | while read -r link; do
+        local target
+        target=$(readlink "$link")
+        echo -e "  ${_clr_red}✘${_clr_reset}  $link  →  $target"
+    done
+    _ok "Check complete."
+}
+
+# dots_backup — snapshot entire home dotfiles set to an archive
+dots_backup() {
+    local out="${1:-$HOME/dotfiles_backup_$(util_timestamp).tar.gz}"
+    _title "Dotfiles Snapshot Backup"
+    tar czvf "$out" \
+        --exclude='.cache' --exclude='Downloads' --exclude='Videos' \
+        --exclude='Music'  --exclude='.local/share/Trash' \
+        --exclude='.local/share/containers' \
+        -C "$HOME" \
+        .bashrc .bash_aliases .bash-aliases .bash-functions \
+        .zshrc .zshenv .profile \
+        .gitconfig .gitignore_global \
+        .config .local/bin .local/share/fonts \
+        .ssh/config .gnupg 2>/dev/null
+    _ok "Backup: $out  ($(du -sh "$out" | cut -f1))"
+}
+
+
+# =============================================================================
+# END OF bash-functions
+# =============================================================================

@@ -1,0 +1,4 @@
+NetworkManager.service
+fstrim.timer
+paccache.timer
+plocate-updatedb.timer

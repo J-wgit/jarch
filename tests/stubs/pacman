@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Stub pacman for offline tests: records calls, pretends packages install.
+echo "pacman $*" >>"${STUB_LOG:?}"
+case "$1" in
+    -Qq|-Qi|-Q) grep -qx "$2" "$STUB_DB" 2>/dev/null ;;
+    -S*) for a in "$@"; do [[ "$a" == -* ]] || echo "$a" >>"$STUB_DB"; done ;;
+    *) exit 0 ;;
+esac

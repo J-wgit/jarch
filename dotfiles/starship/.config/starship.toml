@@ -1,0 +1,70 @@
+"$schema" = 'https://starship.rs/config-schema.json'
+
+add_newline = false
+
+format = """
+$username$os$shell\
+$directory\
+$git_branch\
+$character"""
+
+
+[os]
+style = "bold blue"
+disabled = false
+
+[os.symbols]
+Arch = " "
+
+[shell]
+style = "bold blue"
+fish_indicator = 'fsh'
+zsh_indicator = 'zsh'
+bash_indicator = 'bsh'
+disabled = false
+
+[character]
+success_symbol = "[󰘧](bold purple) "
+error_symbol = "[󰘧](bold red) "
+vimcmd_symbol = "[󰘧](bold green) "
+
+[username]
+style_user = 'bold blue'
+style_root = 'bold red'
+format = '[$user]($style) '
+disabled = false
+show_always = true
+
+
+[package]
+disabled = true
+
+# --- GIT CONFIGURATION (Right Side) ---
+
+[git_branch]
+symbol = " "
+style = "bold magenta"
+format = "[$symbol$branch]($style) "
+
+[git_status]
+style = "bold red"
+format = "([\\[$all_status$ahead_behind\\]]($style) )"
+ahead = "⇡${count}"
+behind = "⇣${count}"
+diverged = "⇕⇡${ahead_count}⇣${behind_count}"
+conflicted = "󰞇 "
+untracked = "󰎙 "
+stashed = "󰏗 "
+modified = "󰏫 "
+staged = "󰐖 "
+renamed = "󰕚 "
+deleted = "󰆴 "
+
+
+[status]
+style = 'bg:black'
+symbol = '🔴'
+success_symbol = '🟢'
+format = '[\[$symbol$common_meaning$signal_name$maybe_int\]]($style) '
+map_symbol = true
+disabled = false

@@ -1,0 +1,44 @@
+# Core CLI system. Always installed.
+base-devel
+git
+stow
+sudo
+bash-completion
+starship
+neovim
+vim
+less
+man-db
+man-pages
+curl
+wget
+rsync
+openssh
+unzip
+zip
+p7zip
+unrar
+reflector
+pacman-contrib      # paccache, checkupdates
+expac
+plocate
+htop
+btop
+fastfetch
+ncdu
+jq
+bc
+lsof
+strace
+inotify-tools
+smartmontools
+iotop
+qrencode
+bind                # dig, nslookup
+mtr
+traceroute
+tcpdump
+networkmanager
+xdg-user-dirs
+python
+ttf-jetbrains-mono-nerd   # starship / prompt glyphs

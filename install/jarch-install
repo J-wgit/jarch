@@ -1,0 +1,128 @@
+#!/usr/bin/env bash
+# jarch-install — turn a fresh Arch install into Jarch.
+#
+# Run as your normal user (with sudo rights) from a checkout of the jarch repo.
+# Every stage is idempotent, so re-running is safe and is how you update.
+
+set -Eeuo pipefail
+
+JARCH_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
+export JARCH_DIR
+
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/jarch"
+LOG_FILE="$STATE_DIR/install.log"
+DRY_RUN=0
+ASSUME_YES=0
+ONLY=()
+SKIP=()
+PROFILES=()
+
+# shellcheck source=lib/common.sh
+source "$JARCH_DIR/install/lib/common.sh"
+# shellcheck source=../jarch.conf
+source "$JARCH_DIR/jarch.conf"
+# Per-machine overrides, kept out of the repo
+# shellcheck source=/dev/null
+[[ -f "${XDG_CONFIG_HOME:-$HOME/.config}/jarch/jarch.conf" ]] && source "${XDG_CONFIG_HOME:-$HOME/.config}/jarch/jarch.conf"
+
+usage() {
+    cat <<EOF
+Usage: jarch-install [options]
+
+Options:
+  -p, --profile LIST   Comma-separated profiles to apply (default: ${DEFAULT_PROFILES[*]})
+                       Available: $(cd "$JARCH_DIR/profiles" && echo */ | tr -d /)
+      --only LIST      Run only these stages (comma-separated names or numbers)
+      --skip LIST      Skip these stages
+  -n, --dry-run        Print what would be done without changing anything
+  -y, --yes            Don't prompt; pass --noconfirm to pacman and the AUR helper
+  -l, --list           List stages and exit
+  -h, --help           Show this help
+
+Stages:
+$(list_stages | sed 's/^/  /')
+
+Log: $LOG_FILE
+EOF
+}
+
+list_stages() {
+    local f
+    for f in "$JARCH_DIR"/install/stages/[0-9][0-9]-*.sh; do
+        printf '%-14s %s\n' "$(basename "$f" .sh)" "$(sed -n 's/^# desc: //p' "$f")"
+    done
+}
+
+split_csv() { tr ',' '\n' <<<"$1" | sed '/^$/d'; }
+
+parse_args() {
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -p|--profile) mapfile -t PROFILES < <(split_csv "${2:?--profile needs a value}"); shift ;;
+            --only)       mapfile -t ONLY < <(split_csv "${2:?--only needs a value}"); shift ;;
+            --skip)       mapfile -t SKIP < <(split_csv "${2:?--skip needs a value}"); shift ;;
+            -n|--dry-run) DRY_RUN=1 ;;
+            -y|--yes)     ASSUME_YES=1 ;;
+            -l|--list)    list_stages; exit 0 ;;
+            -h|--help)    usage; exit 0 ;;
+            *) err "Unknown option: $1"; usage; exit 2 ;;
+        esac
+        shift
+    done
+    [[ ${#PROFILES[@]} -gt 0 ]] || PROFILES=("${DEFAULT_PROFILES[@]}")
+    # base is always applied first
+    local p rest=()
+    for p in "${PROFILES[@]}"; do
+        [[ "$p" == base ]] && continue
+        [[ -d "$JARCH_DIR/profiles/$p" ]] || die "Unknown profile: $p"
+        rest+=("$p")
+    done
+    PROFILES=(base "${rest[@]}")
+}
+
+# matches <stage-basename> <selector...> — e.g. "30-dotfiles" matches "30" or "dotfiles"
+matches() {
+    local name="$1" sel; shift
+    for sel in "$@"; do
+        [[ "$name" == "$sel" || "${name%%-*}" == "$sel" || "${name#*-}" == "$sel" ]] && return 0
+    done
+    return 1
+}
+
+on_error() {
+    err "Failed at line $1 (exit $2). Fix the problem and re-run; finished steps are skipped."
+    err "Full log: $LOG_FILE"
+}
+
+main() {
+    parse_args "$@"
+    mkdir -p "$STATE_DIR"
+    export JARCH_DIR STATE_DIR LOG_FILE DRY_RUN ASSUME_YES AUR_HELPER
+    trap 'on_error $LINENO $?' ERR
+
+    echo -e "${_c_bold}Jarch installer${_c_reset}  ($(git -C "$JARCH_DIR" describe --always --dirty 2>/dev/null || echo unversioned))"
+    info "Repo:     $JARCH_DIR"
+    info "Profiles: ${PROFILES[*]}"
+    [[ "$DRY_RUN" == 1 ]] && warn "Dry run: nothing will be changed"
+    _log "==== jarch-install profiles=${PROFILES[*]} dry_run=$DRY_RUN"
+
+    local f name
+    for f in "$JARCH_DIR"/install/stages/[0-9][0-9]-*.sh; do
+        name="$(basename "$f" .sh)"
+        if [[ ${#ONLY[@]} -gt 0 ]] && ! matches "$name" "${ONLY[@]}"; then continue; fi
+        if [[ ${#SKIP[@]} -gt 0 ]] && matches "$name" "${SKIP[@]}"; then
+            info "Skipping $name"; continue
+        fi
+        stage "$name: $(sed -n 's/^# desc: //p' "$f")"
+        # shellcheck source=/dev/null
+        source "$f"
+    done
+
+    stage "Done"
+    ok "Jarch is installed. Log: $LOG_FILE"
+    if has_profile desktop && [[ "$DRY_RUN" == 0 ]]; then
+        info "Reboot to start the desktop (SDDM → Hyprland)."
+    fi
+}
+
+main "$@"

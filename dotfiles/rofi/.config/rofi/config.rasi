@@ -1,0 +1,31 @@
+configuration {
+    modi: "drun,run,window";
+    show-icons: true;
+    icon-theme: "Papirus-Dark";
+    font: "JetBrainsMono Nerd Font 12";
+    drun-display-format: "{name}";
+}
+
+* {
+    bg: #1e1e2ee6;
+    fg: #cdd6f4;
+    accent: #cba6f7;
+    background-color: transparent;
+    text-color: @fg;
+}
+
+window {
+    width: 600px;
+    background-color: @bg;
+    border: 2px;
+    border-color: @accent;
+    border-radius: 8px;
+    padding: 12px;
+}
+
+inputbar { padding: 8px; children: [prompt, entry]; spacing: 8px; }
+prompt { text-color: @accent; }
+listview { lines: 8; padding: 6px 0 0 0; }
+element { padding: 6px 8px; border-radius: 6px; spacing: 8px; }
+element selected { background-color: #313244; text-color: @accent; }
+element-icon { size: 1.2em; }

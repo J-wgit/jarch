@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Stub makepkg: "installs" the AUR helper being built in the current dir
+echo "makepkg $*" >>"${STUB_LOG:?}"
+name="$(basename "$PWD")"
+# shellcheck disable=SC2016  # $* and $STUB_LOG expand when the generated stub runs
+printf '#!/usr/bin/env bash\necho "%s $*" >>"$STUB_LOG"\n' "$name" >"$STUB_BIN/$name"
+chmod +x "$STUB_BIN/$name"

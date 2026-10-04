@@ -1,0 +1,2 @@
+#!/usr/bin/env bash
+echo "xdg-user-dirs-update $*" >>"${STUB_LOG:?}"
