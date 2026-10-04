@@ -16,7 +16,7 @@ rsync
 openssh
 unzip
 zip
-p7zip
+7zip
 unrar
 reflector
 pacman-contrib      # paccache, checkupdates
