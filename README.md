@@ -41,7 +41,7 @@ Every stage is idempotent: re-running only does what's missing. Logs go to
 |---|---|
 | `00-preflight` | Checks it's Arch, you're not root, sudo and network work; turns on pacman Color, ParallelDownloads, ILoveCandy (and multilib if enabled) |
 | `10-packages` | `pacman -Syu --needed` everything in `profiles/<profile>/pacman` |
-| `20-aur` | Builds `paru` (or `yay`) from the AUR if missing, then installs `profiles/<profile>/aur` |
+| `20-aur` | Installs `paru` (or `yay`) from the AUR if missing or broken: the prebuilt `-bin` first, falling back to a source build if it can't run against your pacman. Then installs `profiles/<profile>/aur` |
 | `30-dotfiles` | Links `dotfiles/<pkg>` into `$HOME` with GNU stow (`--no-folding`). Anything in the way is moved to `~/.local/state/jarch/backup/<timestamp>/` first |
 | `40-services` | Enables `profiles/<profile>/services`, adds you to `groups`, sets your login shell |
 | `50-tools` | Installs `jarch-manager` and links `jarch-install` into `/usr/local/bin` |

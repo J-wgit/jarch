@@ -9,7 +9,7 @@ jobs:
   shellcheck:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: shellcheck
         run: |
           shellcheck -x install/jarch-install install/lib/*.sh install/stages/*.sh tests/*.sh tests/stubs/*
@@ -19,20 +19,20 @@ jobs:
     runs-on: ubuntu-latest
     container: archlinux:latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Check every listed package exists in the repos
         run: tests/check-packages.sh
 
   install-base:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Real install of the base profile in an Arch container
         run: tests/container-install.sh base
 
   install-offline:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Stubbed install of all profiles (dry run, install, idempotent re-run)
         run: tests/offline-install.sh base,desktop,dev

@@ -1,7 +1,14 @@
 #!/usr/bin/env bash
-# Stub makepkg: "installs" the AUR helper being built in the current dir
+# Stub makepkg: "installs" the AUR helper being built in the current dir.
+# With STUB_BROKEN_BIN=1 a *-bin build produces a helper that can't run,
+# like paru-bin linked against an older libalpm.
 echo "makepkg $*" >>"${STUB_LOG:?}"
-name="$(basename "$PWD")"
-# shellcheck disable=SC2016  # $* and $STUB_LOG expand when the generated stub runs
-printf '#!/usr/bin/env bash\necho "%s $*" >>"$STUB_LOG"\n' "$name" >"$STUB_BIN/$name"
+pkg="$(basename "$PWD")"
+name="${pkg%-bin}"
+if [[ "$pkg" == *-bin && "${STUB_BROKEN_BIN:-0}" == 1 ]]; then
+    printf '#!/usr/bin/env bash\necho "%s: libalpm.so: cannot open shared object file" >&2\nexit 127\n' "$name" >"$STUB_BIN/$name"
+else
+    # shellcheck disable=SC2016  # $* and $STUB_LOG expand when the generated stub runs
+    printf '#!/usr/bin/env bash\necho "%s $*" >>"$STUB_LOG"\n' "$name" >"$STUB_BIN/$name"
+fi
 chmod +x "$STUB_BIN/$name"

@@ -19,8 +19,8 @@ docker run --rm -v "$PWD:/src:ro" -e DEBIAN_FRONTEND=noninteractive ubuntu:24.04
     touch /stub/log /stub/db && chmod 666 /stub/log /stub/db && chown -R tester /stub
     # sudo keeps PATH so stubs win
     sed -i 's/^Defaults\s*secure_path/#&/' /etc/sudoers
-    echo 'Defaults env_keep += \"STUB_LOG STUB_DB STUB_BIN\"' > /etc/sudoers.d/stubs
-    run='env PATH=/stub/bin:\$PATH STUB_BIN=/stub/bin STUB_LOG=/stub/log STUB_DB=/stub/db ~/.jarch/install/jarch-install --yes --profile $profiles'
+    echo 'Defaults env_keep += \"STUB_LOG STUB_DB STUB_BIN STUB_BROKEN_BIN\"' > /etc/sudoers.d/stubs
+    run='env PATH=/stub/bin:\$PATH STUB_BROKEN_BIN=1 STUB_BIN=/stub/bin STUB_LOG=/stub/log STUB_DB=/stub/db ~/.jarch/install/jarch-install --yes --profile $profiles'
     echo '===== dry run (must change nothing) ====='
     cp /etc/pacman.conf /tmp/pacman.conf.orig
     su - tester -c 'find ~ -not -path \"*/.local*\" | sort' > /tmp/home.before
