@@ -74,7 +74,7 @@ libreoffice-fresh
 keepassxc
 
 # ── Backends picked explicitly so pacman doesn't ask ──
-phonon-qt6-mpv
+phonon-qt6-vlc        # the only Phonon backend in the Arch repos
 qt6-multimedia-ffmpeg
 
 # ── Fonts, spelling ──
