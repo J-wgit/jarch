@@ -32,6 +32,17 @@ check "second run doesn't change shell again" "! grep -q '^chsh' /stub/log"
 check "no new backups on second run" "[[ \$(ls ~/.local/state/jarch/backup | wc -l) == 1 ]]"
 while read -r s; do check "$s enabled" "grep -qx 'enabled $s' /stub/db"; done < <(profile_items services)
 if has_profile desktop; then check "hypr local.conf created" "[[ -f ~/.config/hypr/local.conf ]]"; fi
+while read -r line; do
+    kconfig_parse "$line"
+    # shellcheck disable=SC2034  # used inside check's eval
+    mapfile -t args < <(kconfig_args)
+    check "kconfig $KC_FILE $KC_KEY" "[[ \"\$(STUB_DB=/stub/db /stub/bin/kreadconfig6 \"\${args[@]}\")\" == \"\$KC_VALUE\" ]]"
+done < <(profile_items kconfig)
+if has_profile kde; then
+    check "kconfig shortcut keeps its tab" "grep -qP 'Alt\\+F4\\tMeta\\+Q,' /stub/db"
+    check "system kconfig file written with sudo" "grep -q '^kwriteconfig6 --file /etc/sddm.conf.d/jarch.conf' /stub/log.first"
+    check "second run doesn't rewrite KDE settings" "! grep -q kwriteconfig6 /stub/log"
+fi
 check "jarch-manager installed" "[[ -x /usr/local/bin/jarch-manager ]] && bash -n /usr/local/bin/jarch-manager"
 check "jarch-install on PATH" "[[ -L /usr/local/bin/jarch-install ]]"
 check "starship config is valid TOML" "python3 -c 'import tomllib;tomllib.load(open(\"$HOME/.config/starship.toml\",\"rb\"))'"

@@ -122,8 +122,14 @@ main() {
 
     stage "Done"
     ok "Jarch is installed. Log: $LOG_FILE"
-    if has_profile desktop && [[ "$DRY_RUN" == 0 ]]; then
-        info "Reboot to start the desktop (SDDM → Hyprland)."
+    if [[ "$DRY_RUN" == 0 ]]; then
+        if has_profile kde && has_profile desktop; then
+            info "Reboot, then pick Plasma or Hyprland at the SDDM login screen."
+        elif has_profile kde; then
+            info "Reboot to start the desktop (SDDM → Plasma)."
+        elif has_profile desktop; then
+            info "Reboot to start the desktop (SDDM → Hyprland)."
+        fi
     fi
 }
 

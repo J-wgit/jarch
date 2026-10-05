@@ -30,9 +30,16 @@ jobs:
       - name: Real install of the base profile in an Arch container
         run: tests/container-install.sh base
 
+  install-kde:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Real install of the KDE profile in an Arch container
+        run: tests/container-install.sh kde
+
   install-offline:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - name: Stubbed install of all profiles (dry run, install, idempotent re-run)
-        run: tests/offline-install.sh base,desktop,dev
+        run: tests/offline-install.sh base,desktop,dev,kde

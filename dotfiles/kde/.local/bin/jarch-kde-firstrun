@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Runs from autostart at Plasma login. Applies the global theme once; after
+# that it does nothing, so your own theme changes stick. Delete the marker
+# (~/.local/state/jarch/kde-firstrun) to apply it again.
+set -euo pipefail
+
+marker="${XDG_STATE_HOME:-$HOME/.local/state}/jarch/kde-firstrun"
+[[ -e "$marker" ]] && exit 0
+
+# Breeze Dark colours, Plasma style, cursors and window decorations;
+# leaves your panel and desktop layout alone
+plasma-apply-lookandfeel --apply org.kde.breezedark.desktop
+
+mkdir -p "$(dirname "$marker")"
+date -Is >"$marker"

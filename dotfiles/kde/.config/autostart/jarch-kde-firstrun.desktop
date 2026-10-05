@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Jarch first login
+Comment=Applies the Jarch look once, at your first Plasma login
+Exec=jarch-kde-firstrun
+NoDisplay=true
+X-KDE-autostart-phase=2

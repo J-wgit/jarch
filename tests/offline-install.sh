@@ -5,7 +5,7 @@
 # tests/container-install.sh is the real thing.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-profiles="${1:-base,desktop,dev}"
+profiles="${1:-base,desktop,dev,kde}"
 
 docker run --rm -v "$PWD:/src:ro" -e DEBIAN_FRONTEND=noninteractive ubuntu:24.04 bash -euo pipefail -c "
     apt-get update -qq >/dev/null && apt-get install -y -qq stow sudo git python3 >/dev/null

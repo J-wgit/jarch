@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Stub kreadconfig6 for offline tests: reads what the kwriteconfig6 stub stored.
+# Read-only, so it isn't logged.
+file="" groups="" key=""
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --file) file="$2"; shift ;;
+        --group) groups+="[$2]"; shift ;;
+        --key) key="$2"; shift ;;
+        --default|--type) shift ;;
+    esac
+    shift
+done
+awk -v p="kconfig $file$groups$key=" 'index($0, p) == 1 { print substr($0, length(p) + 1) }' "${STUB_DB:?}"

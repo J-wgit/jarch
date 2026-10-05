@@ -1,0 +1,5 @@
+sddm.service
+bluetooth.service
+cups.socket
+power-profiles-daemon.service
+ufw.service            # rules stay off until you turn the firewall on in System Settings

@@ -1,0 +1,37 @@
+# KDE settings applied with kwriteconfig6 on every install run.
+# file | group | key | value
+#   group: nest groups with " > "    value: \t is a tab (separates shortcuts)
+#   file: relative = ~/.config, absolute = system file (written with sudo)
+# Values can't contain "#". Change a setting here, not only in System Settings,
+# or the next jarch-install puts it back.
+
+# UK keyboard
+kxkbrc | Layout | Use | true
+kxkbrc | Layout | LayoutList | gb
+
+# Terminal: Konsole with the Jarch profile (Nerd Font for starship)
+kdeglobals | General | TerminalApplication | konsole
+kdeglobals | General | TerminalService | org.kde.konsole.desktop
+kdeglobals | General | fixed | JetBrainsMono Nerd Font,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
+konsolerc | Desktop Entry | DefaultProfile | Jarch.profile
+
+# Same muscle memory as the Hyprland profile: Meta+Return terminal, Meta+Q close
+kglobalshortcutsrc | services > org.kde.konsole.desktop | _launch | Meta+Return\tCtrl+Alt+T
+kglobalshortcutsrc | kwin | Window Close | Alt+F4\tMeta+Q,Alt+F4,Close Window
+
+# Four virtual desktops in a row
+kwinrc | Desktops | Number | 4
+kwinrc | Desktops | Rows | 1
+
+# File search indexes names only, not contents (much lighter)
+baloofilerc | General | only basic indexing | true
+
+# Dolphin
+dolphinrc | General | ShowFullPath | true
+dolphinrc | General | RememberOpenedTabs | false
+
+# Lock after 10 minutes
+kscreenlockerrc | Daemon | Timeout | 10
+
+# Breeze login screen
+/etc/sddm.conf.d/jarch.conf | Theme | Current | breeze
