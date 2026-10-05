@@ -36,11 +36,15 @@ while read -r line; do
     kconfig_parse "$line"
     # shellcheck disable=SC2034  # used inside check's eval
     mapfile -t args < <(kconfig_args)
+    if [[ "$KC_FILE" == /* ]]; then
+        check "$KC_FILE has $KC_KEY=$KC_VALUE" "grep -qxF \"\$KC_KEY=\$KC_VALUE\" \"\$KC_FILE\""
+        continue
+    fi
     check "kconfig $KC_FILE $KC_KEY" "[[ \"\$(STUB_DB=/stub/db /stub/bin/kreadconfig6 \"\${args[@]}\")\" == \"\$KC_VALUE\" ]]"
 done < <(profile_items kconfig)
 if has_profile kde; then
     check "kconfig shortcut keeps its tab" "grep -qP 'Alt\\+F4\\tMeta\\+Q,' /stub/db"
-    check "system kconfig file written with sudo" "grep -q '^kwriteconfig6 --file /etc/sddm.conf.d/jarch.conf' /stub/log.first"
+    check "SDDM drop-in written as a whole file" "[[ \$(stat -c %U:%a /etc/sddm.conf.d/jarch.conf) == root:644 ]] && grep -qx '\\[Theme\\]' /etc/sddm.conf.d/jarch.conf"
     check "second run doesn't rewrite KDE settings" "! grep -q kwriteconfig6 /stub/log"
 fi
 check "jarch-manager installed" "[[ -x /usr/local/bin/jarch-manager ]] && bash -n /usr/local/bin/jarch-manager"

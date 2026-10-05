@@ -1,7 +1,8 @@
 # KDE settings applied with kwriteconfig6 on every install run.
 # file | group | key | value
 #   group: nest groups with " > "    value: \t is a tab (separates shortcuts)
-#   file: relative = ~/.config, absolute = system file (written with sudo)
+#   file: relative = ~/.config; absolute = a system file Jarch owns, rewritten
+#         whole (with sudo) from the entries listed for it
 # Values can't contain "#". Change a setting here, not only in System Settings,
 # or the next jarch-install puts it back.
 
