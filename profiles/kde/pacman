@@ -1,0 +1,84 @@
+# KDE Plasma workstation: a trimmed Plasma (not the full plasma group) plus
+# KDE apps for everyday work. FOSS only. Use instead of, or alongside, desktop.
+
+# ── Plasma session ──
+plasma-desktop
+kwin
+systemsettings
+kdeplasma-addons
+kscreen               # displays
+kinfocenter
+kmenuedit
+polkit-kde-agent
+xdg-desktop-portal-kde
+xdg-desktop-portal-gtk  # file dialogs etc. for GTK apps
+kde-gtk-config        # GTK apps follow the Plasma theme
+breeze-gtk
+kwallet-pam           # unlock the wallet at login
+kwalletmanager
+ksshaskpass           # ssh/git passphrase prompts
+plasma-browser-integration
+sddm
+sddm-kcm              # login screen settings page
+
+# ── Hardware, network, power ──
+plasma-nm
+plasma-pa
+pipewire
+pipewire-pulse
+pipewire-alsa
+pipewire-jack
+wireplumber
+bluedevil
+bluez
+bluez-utils
+powerdevil
+power-profiles-daemon
+plasma-disks          # SMART warnings
+plasma-firewall
+ufw
+print-manager
+cups
+plasma-systemmonitor
+wl-clipboard
+
+# ── KDE apps ──
+konsole               # terminal
+dolphin               # files
+dolphin-plugins       # git status in Dolphin
+kio-extras            # sftp, smb, thumbnails, man: etc.
+kio-admin             # open folders as root in Dolphin
+ark                   # archives
+kate                  # text/code editor
+okular                # PDF, EPUB
+gwenview              # images
+spectacle             # screenshots, screen recording
+kcalc
+kcharselect
+kfind
+filelight            # disk usage
+partitionmanager
+ksystemlog
+kdeconnect            # phone integration
+sshfs                 # browse phone files via KDE Connect
+skanpage              # scanning
+elisa                 # music
+haruna                # video (mpv)
+ffmpegthumbs          # video thumbnails
+kdegraphics-thumbnailers
+
+# ── Not KDE, no KDE equivalent good enough yet ──
+firefox
+thunderbird           # KMail needs the whole Akonadi stack
+libreoffice-fresh
+keepassxc
+
+# ── Backends picked explicitly so pacman doesn't ask ──
+phonon-qt6-vlc        # the only Phonon backend in the Arch repos
+qt6-multimedia-ffmpeg
+
+# ── Fonts, spelling ──
+noto-fonts
+noto-fonts-emoji
+hunspell
+hunspell-en_gb

@@ -13,18 +13,22 @@ Arch install. An archiso image comes later and wraps the same installer.
 ```bash
 sudo pacman -S --needed git
 git clone https://github.com/J-wgit/jarch ~/.jarch
-~/.jarch/install/jarch-install            # base + desktop
+~/.jarch/install/jarch-install            # base + desktop (Hyprland)
+# or: ~/.jarch/install/jarch-install --profile kde        # KDE Plasma workstation
 # or: ~/.jarch/install/jarch-install --profile desktop,dev
 ```
 
-3. Reboot. SDDM starts; pick Hyprland.
+3. Reboot. SDDM starts; pick Hyprland or Plasma.
+
+To make KDE the default on a machine, put `DEFAULT_PROFILES=(base kde)` in
+`~/.config/jarch/jarch.conf`.
 
 Keep `~/.jarch` where it is: your dotfiles are symlinks into it. To update, `git -C ~/.jarch pull && jarch-install`.
 
 ### Options
 
 ```
--p, --profile LIST   base (always), desktop, dev
+-p, --profile LIST   base (always), desktop, kde, dev
     --only LIST      run only some stages, e.g. --only dotfiles
     --skip LIST      e.g. --skip aur,services
 -n, --dry-run        show what would happen, change nothing
@@ -43,6 +47,7 @@ Every stage is idempotent: re-running only does what's missing. Logs go to
 | `10-packages` | `pacman -Syu --needed` everything in `profiles/<profile>/pacman` |
 | `20-aur` | Installs `paru` (or `yay`) from the AUR if missing or broken: the prebuilt `-bin` first, falling back to a source build if it can't run against your pacman. Then installs `profiles/<profile>/aur` |
 | `30-dotfiles` | Links `dotfiles/<pkg>` into `$HOME` with GNU stow (`--no-folding`). Anything in the way is moved to `~/.local/state/jarch/backup/<timestamp>/` first |
+| `35-kconfig` | Applies the KDE settings in `profiles/<profile>/kconfig` with `kwriteconfig6`, only where the value differs |
 | `40-services` | Enables `profiles/<profile>/services`, adds you to `groups`, sets your login shell |
 | `50-tools` | Installs `jarch-manager` and links `jarch-install` into `/usr/local/bin` |
 | `90-post` | Refreshes user dirs and font cache, records what was installed |
@@ -55,8 +60,8 @@ install/
   jarch-install         entry point
   lib/common.sh         logging, dry-run, list helpers
   stages/NN-name.sh     one file per stage, run in order
-profiles/<name>/        pacman, aur, dotfiles, services, user-services, groups (one item per line, # comments)
-dotfiles/<pkg>/         stow packages: bash, starship, hypr, waybar, kitty, rofi, dunst
+profiles/<name>/        pacman, aur, dotfiles, services, user-services, groups, kconfig (one item per line, # comments)
+dotfiles/<pkg>/         stow packages: bash, starship, hypr, waybar, kitty, rofi, dunst, kde
 tools/jarch-manager/    Arch system manager (moved in from J-wgit/Scripts)
 tests/                  CI tests (see below)
 ```
@@ -65,9 +70,39 @@ tests/                  CI tests (see below)
 
 - **base**: CLI system: bash + starship prompt, your aliases and functions, neovim, paru, maintenance tools, NetworkManager.
 - **desktop**: Hyprland, Waybar, Kitty, Rofi, Dunst, hyprlock/hypridle/hyprpaper, PipeWire, Bluetooth, SDDM, Thunar, Firefox, Nerd fonts.
+- **kde**: a trimmed KDE Plasma workstation, FOSS only, KDE apps first. See below.
 - **dev**: Python tooling, Node, Rust (rustup), Go, Docker, ctags, GitHub CLI.
 
 Add a profile by creating `profiles/<name>/` with any of the list files.
+
+### The KDE profile
+
+Plasma (Wayland) without the full `plasma` group: no Discover, no Akonadi, no
+games or demo apps. Apps, KDE wherever there's a good one:
+
+| | |
+|---|---|
+| Terminal, files, editor | Konsole, Dolphin (+ git plugin, open-as-root), Kate |
+| Documents, images | Okular, Gwenview, Spectacle, LibreOffice |
+| Media | Elisa (music), Haruna (video) |
+| Utilities | Ark, KCalc, KCharSelect, KFind, Filelight, Partition Manager, KSystemLog, System Monitor, Skanpage |
+| Desktop | Network, audio, Bluetooth, power profiles, printing, firewall (ufw), SMART disk warnings, KDE Connect, KWallet with ssh passphrase prompts |
+| Not KDE | Firefox (with Plasma integration), Thunderbird (KMail needs Akonadi), KeePassXC |
+
+Settings (`profiles/kde/kconfig`): UK keyboard, Konsole as terminal with a Jarch
+profile in JetBrainsMono Nerd Font so the starship prompt renders, Meta+Return
+for a terminal and Meta+Q to close windows (as in the Hyprland profile), 4
+virtual desktops, file search on names only, lock after 10 minutes, Breeze login
+screen. Breeze Dark is applied once at your first Plasma login; after that the
+look is yours to change.
+
+KDE rewrites its own config files, so these settings are applied as individual
+keys, not linked. Re-running `jarch-install` puts back any listed key you changed
+in System Settings: change it in `profiles/kde/kconfig` instead, or run with
+`--skip kconfig`. Only the Konsole profile, the Plasma login environment and the
+first-login script are stow links (`dotfiles/kde`).
+
+`desktop` and `kde` can be installed together; SDDM lets you pick a session.
 
 ### Machine-specific settings
 

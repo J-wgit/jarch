@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Stub kwriteconfig6 for offline tests: records calls, stores values in $STUB_DB
+# as "kconfig <file>[group]...<key>=<value>".
+echo "kwriteconfig6 $*" >>"${STUB_LOG:?}"
+file="" groups="" key="" value=""
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --file) file="$2"; shift ;;
+        --group) groups+="[$2]"; shift ;;
+        --key) key="$2"; shift ;;
+        --type) shift ;;
+        --notify) ;;
+        *) value="$1" ;;
+    esac
+    shift
+done
+p="kconfig $file$groups$key="
+tmp="$(mktemp)"
+awk -v p="$p" 'index($0, p) != 1' "${STUB_DB:?}" >"$tmp"
+printf '%s%s\n' "$p" "$value" >>"$tmp"
+cat "$tmp" >"$STUB_DB" && rm -f "$tmp"

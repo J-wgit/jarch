@@ -62,3 +62,30 @@ has_profile() {
 }
 
 pacman_noconfirm() { if [[ "${ASSUME_YES:-0}" == 1 ]]; then echo --noconfirm; fi; }
+
+# kconfig_parse <line> — split a profiles/<p>/kconfig entry
+# ("file | group > subgroup | key | value") into KC_FILE, KC_GROUPS (array),
+# KC_KEY and KC_VALUE. A literal \t in the value becomes a tab.
+kconfig_parse() {
+    local line="$1" groups part
+    _kc_trim() { local s="$1"; s="${s#"${s%%[![:space:]]*}"}"; printf '%s' "${s%"${s##*[![:space:]]}"}"; }
+    IFS='|' read -r KC_FILE groups KC_KEY KC_VALUE <<<"$line"
+    KC_FILE="$(_kc_trim "$KC_FILE")"
+    KC_KEY="$(_kc_trim "$KC_KEY")"
+    KC_VALUE="$(_kc_trim "$KC_VALUE")"
+    KC_VALUE="${KC_VALUE//\\t/$'\t'}"
+    KC_GROUPS=()
+    while IFS= read -r part; do
+        part="$(_kc_trim "$part")"
+        [[ -n "$part" ]] && KC_GROUPS+=("$part")
+    done <<<"${groups// > /$'\n'}"
+    [[ -n "$KC_FILE" && ${#KC_GROUPS[@]} -gt 0 && -n "$KC_KEY" ]]
+}
+
+# kconfig_args — kreadconfig6/kwriteconfig6 arguments for the last kconfig_parse
+kconfig_args() {
+    local g
+    printf '%s\n' --file "$KC_FILE"
+    for g in "${KC_GROUPS[@]}"; do printf '%s\n' --group "$g"; done
+    printf '%s\n' --key "$KC_KEY"
+}
