@@ -70,7 +70,13 @@ else
         if [[ "$(jarch_siglevel)" == Required* && -f "$JARCH_DIR/keys/jarch.asc" ]]; then
             _fpr="$(gpg --with-colons --import-options show-only --import "$JARCH_DIR/keys/jarch.asc" 2>/dev/null | awk -F: '/^fpr/ { print $10; exit }')"
             [[ -n "$_fpr" ]] || die "keys/jarch.asc isn't a valid GPG public key"
-            if ! sudo pacman-key --list-keys "$_fpr" &>/dev/null; then
+            # trusted = carries a local (non-exportable, class "..l") signature
+            if ! sudo gpg --homedir /etc/pacman.d/gnupg --with-colons --list-sigs "$_fpr" 2>/dev/null \
+                    | awk -F: '$1 == "sig" && $11 ~ /l$/ { found = 1 } END { exit !found }'; then
+                # lsign needs pacman's local master key; minimal images ship without one
+                if [[ -z "$(sudo gpg --homedir /etc/pacman.d/gnupg --list-secret-keys 2>/dev/null)" ]]; then
+                    sudo pacman-key --init
+                fi
                 sudo pacman-key --add "$JARCH_DIR/keys/jarch.asc"
                 sudo pacman-key --lsign-key "$_fpr"
                 ok "pacman: trusted the [jarch] signing key $_fpr"
