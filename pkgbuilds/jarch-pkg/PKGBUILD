@@ -1,0 +1,23 @@
+# Jarch's own tool: files come from this repo's tree, not a download.
+# The version bumps itself: r<N> counts the commits that touched the paths in
+# _paths, so every merged change to the tool publishes a new build.
+pkgname=jarch-pkg
+_basever=0.1.0
+_jarch="$(realpath "$startdir/../..")"
+_paths=(tools/jarch-pkg pkgbuilds/jarch-pkg)
+pkgver=$_basever.r$(git -C "$_jarch" rev-list --count HEAD -- "${_paths[@]}" 2>/dev/null || echo 0)
+pkgrel=1
+pkgdesc="Jarch: build, fork and update the packages served from the [jarch] repo"
+arch=(any)
+url="https://github.com/J-wgit/jarch"
+license=(unknown)
+depends=(bash git pacman base-devel libarchive)
+optdepends=(
+    'curl: jarch-pkg outdated'
+    'python: jarch-pkg outdated'
+)
+
+package() {
+    install -Dm755 "$_jarch/tools/jarch-pkg/jarch-pkg" "$pkgdir/usr/bin/jarch-pkg"
+    install -Dm644 "$_jarch/pkgbuilds/README.md" "$pkgdir/usr/share/doc/jarch-pkg/README.md"
+}

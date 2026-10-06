@@ -37,4 +37,54 @@ fi
 if [[ "$ENABLE_MULTILIB" == 1 ]] && ! grep -q '^\[multilib\]' "$_pconf"; then
     run sudo sed -i '/^#\[multilib\]/,/^#Include/ s/^#//' "$_pconf" && ok "pacman: multilib enabled"
 fi
-unset _pconf
+
+# [jarch] repo section, kept between BEGIN/END markers so re-runs can update it
+_jarch_conf() {  # current pacman.conf with the [jarch] section as configured
+    local block=""
+    [[ "${JARCH_REPO:-1}" == 1 ]] && block="$(jarch_repo_block)"
+    JARCH_BLOCK="$block" awk -v first="${JARCH_REPO_FIRST:-1}" '
+        BEGIN { block = ENVIRON["JARCH_BLOCK"] }
+        # the blank line before the old section goes with it, so re-runs are stable
+        /^# BEGIN jarch/ { skip = 1; if (blank) blank--; next }
+        skip { if (/^# END jarch/) skip = 0; next }
+        /^$/ { blank++; next }
+        first == 1 && block != "" && !done && /^\[core\]/ { flush(); print block; print ""; done = 1 }
+        { flush(); print }
+        END { flush(); if (block != "" && !done) { print ""; print block } }
+        function flush() { while (blank > 0) { print ""; blank-- } }
+    ' "$_pconf"
+}
+_want="$(_jarch_conf)"
+if [[ "$_want" == "$(cat "$_pconf")" ]]; then
+    [[ "${JARCH_REPO:-1}" == 1 ]] && ok "pacman: [jarch] repo already configured"
+elif [[ "${JARCH_REPO:-1}" != 1 ]]; then
+    run sudo install -m644 /dev/stdin "$_pconf" <<<"$_want" && ok "pacman: [jarch] repo removed"
+elif [[ "$DRY_RUN" == 1 ]]; then
+    info "Would add the [jarch] repo to $_pconf ($JARCH_REPO_SERVER)"
+else
+    _db="${JARCH_REPO_SERVER//\$arch/$(uname -m)}/jarch.db"
+    if ! curl -fsSL --max-time 20 -o /dev/null "$_db"; then
+        warn "Can't reach the [jarch] repo ($_db). Jarch's packages will be built from pkgbuilds/ instead."
+        grep -q '^# BEGIN jarch' "$_pconf" && warn "Leaving the existing [jarch] section in $_pconf as it is."
+    else
+        if [[ "$(jarch_siglevel)" == Required* && -f "$JARCH_DIR/keys/jarch.asc" ]]; then
+            _fpr="$(gpg --with-colons --import-options show-only --import "$JARCH_DIR/keys/jarch.asc" 2>/dev/null | awk -F: '/^fpr/ { print $10; exit }')"
+            [[ -n "$_fpr" ]] || die "keys/jarch.asc isn't a valid GPG public key"
+            # trusted = carries a local (non-exportable, class "..l") signature
+            if ! sudo gpg --homedir /etc/pacman.d/gnupg --with-colons --list-sigs "$_fpr" 2>/dev/null \
+                    | awk -F: '$1 == "sig" && $11 ~ /l$/ { found = 1 } END { exit !found }'; then
+                # lsign needs pacman's local master key; minimal images ship without one
+                if [[ -z "$(sudo gpg --homedir /etc/pacman.d/gnupg --list-secret-keys 2>/dev/null)" ]]; then
+                    sudo pacman-key --init
+                fi
+                sudo pacman-key --add "$JARCH_DIR/keys/jarch.asc"
+                sudo pacman-key --lsign-key "$_fpr"
+                ok "pacman: trusted the [jarch] signing key $_fpr"
+            fi
+        fi
+        sudo install -m644 /dev/stdin "$_pconf" <<<"$_want"
+        ok "pacman: [jarch] repo configured ($JARCH_REPO_SERVER)"
+    fi
+fi
+unset _pconf _want _db _fpr
+unset -f _jarch_conf

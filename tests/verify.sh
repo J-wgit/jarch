@@ -4,6 +4,7 @@
 set -euo pipefail
 JARCH_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 IFS=',' read -ra PROFILES <<<"${1:-base}"
+expect="${2:-any}"   # repo: Jarch's packages must have come from [jarch]
 [[ "${PROFILES[0]}" == base ]] || PROFILES=(base "${PROFILES[@]}")
 source "$JARCH_DIR/install/lib/common.sh"
 fail=0
@@ -36,7 +37,23 @@ if has_profile kde; then
     check "first-login script on PATH for Plasma" "bash -c 'source ~/.config/plasma-workspace/env/jarch.sh && command -v jarch-kde-firstrun' >/dev/null"
     check "look-and-feel package exists" "[[ -d /usr/share/plasma/look-and-feel/org.kde.breezedark.desktop ]]"
 fi
-check "jarch-manager installed" "[[ -x /usr/local/bin/jarch-manager ]] && bash -n /usr/local/bin/jarch-manager"
+while read -r p; do
+    check "$p installed at its pkgbuilds/ version" "[[ \$(pacman -Q $p | cut -d' ' -f2) == \$(pkgbuild_version $JARCH_DIR/pkgbuilds/$p) ]]"
+    if [[ "$expect" == repo ]]; then
+        check "$p installed from [jarch]" "pacman -Sl jarch | grep -q '^jarch $p .*\[installed\]'"
+    fi
+done < <(profile_items jarch)
+if [[ "$expect" == repo ]]; then
+    check "[jarch] listed above [core]" "[[ \$(grep -nx '\\[jarch\\]' /etc/pacman.conf | cut -d: -f1) -lt \$(grep -nx '\\[core\\]' /etc/pacman.conf | cut -d: -f1) ]]"
+    if [[ -f "$JARCH_DIR/keys/jarch.asc" ]]; then
+        check "[jarch] requires signatures" "grep -qx 'SigLevel = Required DatabaseOptional' /etc/pacman.conf"
+    fi
+fi
+# outputs are captured first: grep -q closing a pipe early would trip pipefail
+check "jarch-manager runs as a user" "[[ \$(command -v jarch-manager) == /usr/bin/jarch-manager && \$(jarch-manager version) == *v1.0.0* ]]"
+check "jarch-install launcher finds the checkout" "[[ \$(command -v jarch-install) == /usr/bin/jarch-install && \$(jarch-install --list) == *50-tools* ]]"
+# (the archlinux image's NoExtract skips docs on disk, so ask the package)
+check "jarch-manager ships its docs" "[[ \$(pacman -Qlq jarch-manager) == */usr/share/doc/jarch-manager/README.md* ]]"
 check "pacman Color on" "grep -q '^Color' /etc/pacman.conf"
 check "install state recorded" "[[ -f ~/.local/state/jarch/installed ]]"
 exit $fail

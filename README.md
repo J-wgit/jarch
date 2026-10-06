@@ -3,7 +3,7 @@
 A customized, riced Arch Linux, built as a re-runnable installer over a vanilla
 Arch install. An archiso image comes later and wraps the same installer.
 
-**Status:** phase 1 (installer MVP). Theming is phase 2, packaging phase 3, ISO phase 4.
+**Status:** phase 1 (installer MVP) and the `[jarch]` package repo. Theming is phase 2, ISO phase 4.
 
 ## Install
 
@@ -43,26 +43,27 @@ Every stage is idempotent: re-running only does what's missing. Logs go to
 
 | Stage | |
 |---|---|
-| `00-preflight` | Checks it's Arch, you're not root, sudo and network work; turns on pacman Color, ParallelDownloads, ILoveCandy (and multilib if enabled) |
+| `00-preflight` | Checks it's Arch, you're not root, sudo and network work; turns on pacman Color, ParallelDownloads, ILoveCandy (and multilib if enabled); adds the `[jarch]` repo above `[core]` if it can reach it |
 | `10-packages` | `pacman -Syu --needed` everything in `profiles/<profile>/pacman` |
 | `20-aur` | Installs `paru` (or `yay`) from the AUR if missing or broken: the prebuilt `-bin` first, falling back to a source build if it can't run against your pacman. Then installs `profiles/<profile>/aur` |
 | `30-dotfiles` | Links `dotfiles/<pkg>` into `$HOME` with GNU stow (`--no-folding`). Anything in the way is moved to `~/.local/state/jarch/backup/<timestamp>/` first |
 | `35-kconfig` | Applies the KDE settings in `profiles/<profile>/kconfig` with `kwriteconfig6`, only where the value differs |
 | `40-services` | Enables `profiles/<profile>/services`, adds you to `groups`, sets your login shell |
-| `50-tools` | Installs `jarch-manager` and links `jarch-install` into `/usr/local/bin` |
+| `50-tools` | Installs the packages in `profiles/<profile>/jarch` (`jarch-manager`, `jarch-install`, ...) from `[jarch]`, or builds them from `pkgbuilds/` if `[jarch]` isn't reachable |
 | `90-post` | Refreshes user dirs and font cache, records what was installed |
 
 ## Layout
 
 ```
-jarch.conf              settings (AUR helper, pacman tweaks, default profiles, login shell)
+jarch.conf              settings (AUR helper, pacman tweaks, [jarch] repo, default profiles, login shell)
 install/
   jarch-install         entry point
   lib/common.sh         logging, dry-run, list helpers
   stages/NN-name.sh     one file per stage, run in order
-profiles/<name>/        pacman, aur, dotfiles, services, user-services, groups, kconfig (one item per line, # comments)
+profiles/<name>/        pacman, aur, jarch, dotfiles, services, user-services, groups, kconfig (one item per line, # comments)
 dotfiles/<pkg>/         stow packages: bash, starship, hypr, waybar, kitty, rofi, dunst, kde
-tools/jarch-manager/    Arch system manager (moved in from J-wgit/Scripts)
+pkgbuilds/<name>/       packages served from [jarch]: Jarch's tools and custom builds of upstream packages
+tools/                  jarch-manager (moved in from J-wgit/Scripts), jarch-pkg, the jarch-install launcher
 tests/                  CI tests (see below)
 ```
 
@@ -116,6 +117,23 @@ first-login script are stow links (`dotfiles/kde`).
 `.bashrc` that loads them and starship. `DOTFILES_DIR` points at `~/.jarch/dotfiles`,
 so the `dots_stow_*` functions manage Jarch's dotfiles.
 
+## The [jarch] package repo
+
+Jarch's own tools are pacman packages, served from Jarch's own repository
+alongside custom builds of open-source packages. Each lives in
+`pkgbuilds/<name>/`; CI builds them and publishes `[jarch]` on every merge to
+`main`, and `jarch-install` adds it to `/etc/pacman.conf`, so they update with
+`pacman -Syu`.
+
+- New Jarch tool: `jarch-pkg new <name>`, then list it in a profile's `jarch` file.
+- Patched or reconfigured build of an Arch or AUR package: `jarch-pkg import <name> [--aur]`,
+  edit the PKGBUILD, commit. `[jarch]` sits above `[core]`, so your build replaces the
+  official one. `jarch-pkg outdated` and `jarch-pkg update <name>` keep forks current.
+
+Packages are unsigned until you add a signing key. Details, signing and
+hosting: [pkgbuilds/README.md](pkgbuilds/README.md). Repo settings
+(`JARCH_REPO*`) are in `jarch.conf`.
+
 ## jarch-manager
 
 Menu-driven and CLI system manager: updates, orphans, cache/log cleanup, services,
@@ -129,6 +147,8 @@ See `tools/jarch-manager/README.md`.
   re-run (must be a no-op), and checks dotfiles, backups, services and pacman.conf.
 - `tests/container-install.sh [profiles]`: a real install in an `archlinux` container,
   run twice, then `tests/verify.sh`. Set `JARCH_TEST_CA` behind a TLS-intercepting proxy.
-- `tests/check-packages.sh`: every listed package exists in the Arch repos.
+- `tests/check-packages.sh`: every listed package exists in the Arch repos, and every
+  `jarch` list entry has a PKGBUILD.
 
-CI runs all three plus shellcheck.
+CI also builds every package into a signed `[jarch]` repo (throwaway key) and does the
+base install from it; the offline test runs with `[jarch]` reachable and unreachable.

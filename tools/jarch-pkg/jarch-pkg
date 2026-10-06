@@ -1,0 +1,397 @@
+#!/usr/bin/env bash
+# jarch-pkg — manage the packages served from Jarch's [jarch] pacman repo.
+#
+# Every directory under pkgbuilds/ with a PKGBUILD is one package (or one
+# pkgbase, for split packages). Two kinds live there side by side:
+#   - Jarch's own tools: the PKGBUILD installs files from this repo's tree.
+#   - Forks of open-source packages from the Arch repos or the AUR: imported
+#     with `jarch-pkg import`, then patched or reconfigured as needed. A
+#     jarch.upstream file records where each fork came from.
+#
+# Building needs an Arch system (makepkg, repo-add); everything else is plain bash.
+
+set -Eeuo pipefail
+
+die()  { echo -e "\033[0;31m[ERR]\033[0m   $*" >&2; exit 1; }
+info() { echo -e "\033[0;34m[INFO]\033[0m  $*"; }
+ok()   { echo -e "\033[0;32m[OK]\033[0m    $*"; }
+warn() { echo -e "\033[0;33m[WARN]\033[0m  $*" >&2; }
+
+# The jarch checkout: $JARCH_DIR, else the git checkout we're in, else the one
+# jarch-install recorded, else ~/.jarch
+find_jarch_dir() {
+    local d
+    if [[ -n "${JARCH_DIR:-}" ]]; then echo "$JARCH_DIR"; return; fi
+    d="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+    if [[ -n "$d" && -d "$d/pkgbuilds" ]]; then echo "$d"; return; fi
+    local env="${XDG_CONFIG_HOME:-$HOME/.config}/jarch/env"
+    if [[ -f "$env" ]]; then
+        # shellcheck source=/dev/null
+        d="$(source "$env" && echo "${JARCH_DIR:-}")"
+        [[ -n "$d" ]] && { echo "$d"; return; }
+    fi
+    echo "$HOME/.jarch"
+}
+JARCH_DIR="$(find_jarch_dir)"
+PKGS="$JARCH_DIR/pkgbuilds"
+REPO_NAME=jarch
+
+usage() {
+    cat <<EOF
+Usage: jarch-pkg <command> [args]
+
+Packages live in $PKGS/<name>/ (one PKGBUILD each).
+
+Commands:
+  list                    List packages: name, version, where it came from
+  new <name>              Scaffold a package for a new Jarch tool (tools/<name>/<name>)
+  import <name> [--aur]   Fork an Arch package (or an AUR package) into pkgbuilds/<name>
+                          so you can patch it and serve it from [jarch]
+  update <name>           Merge upstream's packaging changes into a fork (3-way;
+                          your edits are kept, conflicts are marked in the files)
+  outdated                Show forks whose upstream has a newer version
+  build [options] [name...]
+                          Build packages into a pacman repo (default: all)
+      --out DIR           Repo directory (default: $JARCH_DIR/out/repo)
+      --sign KEYID        Sign packages and the database with this GPG key
+      --rebuild           Rebuild even if the version is already in the repo
+  version <name>          Print the full version a PKGBUILD would build
+
+Build on Arch. CI builds and publishes [jarch] from main; see pkgbuilds/README.md.
+EOF
+}
+
+# Scratch space for clones, removed when jarch-pkg exits
+SCRATCH="$(mktemp -d)"
+trap 'rm -rf "$SCRATCH"' EXIT
+
+# pkg_dirs [name...] — package directories, all of them by default
+pkg_dirs() {
+    local n
+    if [[ $# -eq 0 ]]; then
+        for n in "$PKGS"/*/PKGBUILD; do [[ -f "$n" ]] && dirname "$n"; done
+        return 0
+    fi
+    for n in "$@"; do
+        [[ -f "$PKGS/$n/PKGBUILD" ]] || die "No package '$n' (expected $PKGS/$n/PKGBUILD)"
+        echo "$PKGS/$n"
+    done
+}
+
+# pkginfo <dir> — sources the PKGBUILD the way makepkg does and prints
+# "<pkgbase> <[epoch:]pkgver-pkgrel> <pkgname>..."
+pkginfo() {
+    (
+        cd "$1"
+        # shellcheck disable=SC2034  # read by Jarch's PKGBUILDs
+        startdir="$PWD"
+        # shellcheck disable=SC1091
+        source ./PKGBUILD
+        # shellcheck disable=SC2154  # set by the PKGBUILD
+        echo "${pkgbase:-${pkgname[0]}} ${epoch:+$epoch:}$pkgver-$pkgrel ${pkgname[*]}"
+    )
+}
+
+cmd_version() {
+    [[ $# -eq 1 ]] || die "Usage: jarch-pkg version <name>"
+    version_of "$(pkg_dirs "$1")"
+}
+
+cmd_list() {
+    local d base ver names origin
+    printf '%-24s %-22s %s\n' PACKAGE VERSION SOURCE
+    while read -r d; do
+        read -r base ver names < <(pkginfo "$d")
+        if [[ -f "$d/jarch.upstream" ]]; then
+            origin="fork of $(sed -n 's/^origin=//p' "$d/jarch.upstream") $(sed -n 's/^version=//p' "$d/jarch.upstream")"
+        else
+            origin="jarch"
+        fi
+        [[ "$names" != "$base" ]] && origin+="  (packages: $names)"
+        printf '%-24s %-22s %s\n' "$base" "$ver" "$origin"
+    done < <(pkg_dirs)
+}
+
+cmd_new() {
+    [[ $# -eq 1 ]] || die "Usage: jarch-pkg new <name>"
+    local name="$1" d="$PKGS/$1"
+    [[ "$name" =~ ^[a-z0-9@._+][a-z0-9@._+-]*$ ]] || die "Invalid package name: $name"
+    [[ -e "$d" ]] && die "$d already exists"
+    mkdir -p "$d"
+    sed "s/@NAME@/$name/g" >"$d/PKGBUILD" <<'EOF'
+# Jarch's own tool: files come from this repo's tree, not a download.
+# The version bumps itself: r<N> counts the commits that touched the paths in
+# _paths, so every merged change to the tool publishes a new build.
+pkgname=@NAME@
+_basever=0.1.0
+_jarch="$(realpath "$startdir/../..")"
+_paths=(tools/@NAME@ pkgbuilds/@NAME@)
+pkgver=$_basever.r$(git -C "$_jarch" rev-list --count HEAD -- "${_paths[@]}" 2>/dev/null || echo 0)
+pkgrel=1
+pkgdesc="Jarch: describe @NAME@ here"
+arch=(any)
+url="https://github.com/J-wgit/jarch"
+license=(unknown)
+depends=(bash)
+
+package() {
+    install -Dm755 "$_jarch/tools/@NAME@/@NAME@" "$pkgdir/usr/bin/@NAME@"
+}
+EOF
+    ok "Created $d/PKGBUILD"
+    info "Put the tool in tools/$name/$name, list it in a profile's 'jarch' file to install it, and commit."
+}
+
+# upstream_url <origin> <name>
+upstream_url() {
+    case "$1" in
+        # Arch's GitLab spells '+' as 'plus' in project paths
+        arch) echo "https://gitlab.archlinux.org/archlinux/packaging/packages/${2//+/plus}.git" ;;
+        aur)  echo "https://aur.archlinux.org/$2.git" ;;
+        *) die "Unknown origin '$1' (want arch or aur)" ;;
+    esac
+}
+
+# upstream_files <checkout> — packaging files to copy (no VCS or generated files)
+upstream_files() {
+    git -C "$1" ls-files | { grep -vxE '\.SRCINFO|\.gitignore|\.nvchecker\.toml|REUSE\.toml|LICENSES/.*|keys/.*' || true; }
+}
+
+cmd_import() {
+    local name="" origin=arch
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --aur) origin=aur ;;
+            -*) die "Unknown option $1" ;;
+            *) name="$1" ;;
+        esac
+        shift
+    done
+    [[ -n "$name" ]] || die "Usage: jarch-pkg import <pkgbase> [--aur]"
+    local d="$PKGS/$name" url tmp commit f ver
+    [[ -e "$d" ]] && die "$d already exists"
+    url="$(upstream_url "$origin" "$name")"
+    tmp="$SCRATCH"
+    info "Cloning $url"
+    git clone -q "$url" "$tmp/up" || die "Couldn't clone $url (for split packages, use the pkgbase name)"
+    [[ -f "$tmp/up/PKGBUILD" ]] || die "$url has no PKGBUILD"
+    commit="$(git -C "$tmp/up" rev-parse HEAD)"
+    mkdir -p "$d"
+    while IFS= read -r f; do
+        install -Dm644 "$tmp/up/$f" "$d/$f"
+    done < <(upstream_files "$tmp/up")
+    ver="$(version_of "$d")"
+    # Mark the fork in pkgrel (1 -> 1.1). The version then sorts above the
+    # upstream build, so pacman -Syu swaps an installed upstream copy for this one.
+    sed -i -E 's/^pkgrel=([0-9.]+)\s*$/pkgrel=\1.1/' "$d/PKGBUILD"
+    cat >"$d/jarch.upstream" <<EOF
+# This package is a fork, served from [jarch] in place of upstream's build.
+# Written by jarch-pkg import; jarch-pkg update reads and refreshes it.
+origin=$origin
+url=$url
+commit=$commit
+version=$ver
+EOF
+    ok "Imported $name $ver from $origin into $d"
+    info "Customise it: edit PKGBUILD (add patches to source=() and apply them in prepare()), then run updpkgsums."
+    info "Keep the '.1' fork mark in pkgrel (bump it to .2, .3... for rebuilds of your own)."
+}
+
+cmd_update() {
+    [[ $# -eq 1 ]] || die "Usage: jarch-pkg update <name>"
+    local d meta origin url old new tmp f conflicts=0
+    d="$(pkg_dirs "$1")"
+    meta="$d/jarch.upstream"
+    [[ -f "$meta" ]] || die "$1 isn't a fork (no jarch.upstream)"
+    origin="$(sed -n 's/^origin=//p' "$meta")"
+    url="$(sed -n 's/^url=//p' "$meta")"
+    old="$(sed -n 's/^commit=//p' "$meta")"
+    tmp="$SCRATCH"
+    git clone -q "$url" "$tmp/up"
+    new="$(git -C "$tmp/up" rev-parse HEAD)"
+    if [[ "$new" == "$old" ]]; then ok "$1 is already at upstream's latest packaging"; return 0; fi
+    info "Merging upstream $origin changes ${old:0:8}..${new:0:8} into $d"
+    git -C "$tmp/up" diff --stat "$old" "$new"
+    mkdir -p "$tmp/base"
+    while IFS= read -r f; do
+        mkdir -p "$(dirname "$tmp/base/$f")"
+        git -C "$tmp/up" show "$old:$f" >"$tmp/base/$f" 2>/dev/null || : >"$tmp/base/$f"
+        # The fork mark in pkgrel (1 -> 1.1) sits next to pkgver, so it would
+        # conflict with every upstream version bump: merge without it
+        if [[ "$f" == PKGBUILD && -f "$d/$f" ]]; then
+            local base_rel our_rel
+            base_rel="$(sed -n 's/^pkgrel=//p' "$tmp/base/$f")"
+            our_rel="$(sed -n 's/^pkgrel=//p' "$d/$f")"
+            [[ -n "$base_rel" ]] && sed -i "s/^pkgrel=.*/pkgrel=$base_rel/" "$d/$f"
+        fi
+        if [[ ! -f "$d/$f" ]]; then
+            install -Dm644 "$tmp/up/$f" "$d/$f"
+            info "Added $f"
+        elif ! git merge-file -L jarch -L "upstream ${old:0:8}" -L "upstream ${new:0:8}" \
+                "$d/$f" "$tmp/base/$f" "$tmp/up/$f"; then
+            warn "Conflicts in $d/$f: look for <<<<<<< markers"
+            conflicts=1
+        fi
+    done < <(upstream_files "$tmp/up")
+    # Put the fork mark back: .1 on a new upstream version, else as it was
+    local old_ver new_rel
+    old_ver="$(sed -n 's/^version=//p' "$meta")"
+    new_rel="$(sed -n 's/^pkgrel=//p' "$tmp/up/PKGBUILD")"
+    if [[ "$(version_of "$tmp/up" 2>/dev/null)" != "$old_ver" ]]; then
+        sed -i "s/^pkgrel=$new_rel\$/pkgrel=$new_rel.1/" "$d/PKGBUILD"
+    elif [[ -n "${our_rel:-}" ]]; then
+        sed -i "s/^pkgrel=$new_rel\$/pkgrel=$our_rel/" "$d/PKGBUILD"
+    fi
+    sed -i "s/^commit=.*/commit=$new/" "$meta"
+    sed -i "s/^version=.*/version=$(version_of "$tmp/up")/" "$meta"
+    if [[ $conflicts == 1 ]]; then
+        warn "Resolve the conflicts, then check pkgrel carries the fork mark (upstream 2 -> 2.1)."
+        return 1
+    fi
+    ok "Merged: $(version_of "$d"). Run updpkgsums if sources changed, then build and commit."
+}
+
+# version_of <dir> — the version its PKGBUILD builds
+version_of() { pkginfo "$1" | cut -d' ' -f2; }
+
+# upstream_version <origin> <pkgbase> — latest upstream version, from the
+# Arch package search or the AUR RPC
+upstream_version() {
+    local json
+    case "$1" in
+        arch)
+            json="$(curl -fsS "https://archlinux.org/packages/search/json/?q=$2")" || return 1
+            python3 -c '
+import json, sys
+name = sys.argv[1]
+for r in json.load(sys.stdin)["results"]:
+    if r["pkgbase"] == name or r["pkgname"] == name:
+        e = r["epoch"]
+        print(f"{e}:" if e else "", r["pkgver"], "-", r["pkgrel"], sep=""); break
+' "$2" <<<"$json" ;;
+        aur)
+            json="$(curl -fsS "https://aur.archlinux.org/rpc/v5/info?arg%5B%5D=$2")" || return 1
+            python3 -c 'import json,sys; r=json.load(sys.stdin)["results"]; print(r[0]["Version"] if r else "")' <<<"$json" ;;
+    esac
+}
+
+cmd_outdated() {
+    local d base ver origin up any=0
+    while read -r d; do
+        [[ -f "$d/jarch.upstream" ]] || continue
+        any=1
+        read -r base ver _ < <(pkginfo "$d")
+        origin="$(sed -n 's/^origin=//p' "$d/jarch.upstream")"
+        up="$(upstream_version "$origin" "$base" || true)"
+        if [[ -z "$up" ]]; then
+            warn "$base: couldn't find it upstream ($origin)"
+        elif [[ "$(vercmp "$up" "$ver")" -gt 0 ]]; then
+            echo "$base: $ver -> upstream $up  (jarch-pkg update $base)"
+        else
+            ok "$base $ver (upstream $up)"
+        fi
+    done < <(pkg_dirs)
+    [[ $any == 1 ]] || info "No forked packages in $PKGS"
+}
+
+# db_filenames <db> — package files the repo database lists
+db_filenames() {
+    [[ -f "$1" ]] || return 0
+    bsdtar -xOf "$1" '*/desc' 2>/dev/null | awk '/^%FILENAME%$/ { getline; print }'
+}
+
+cmd_build() {
+    local out="$JARCH_DIR/out/repo" key="" rebuild=0 names=()
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --out) out="${2:?}"; shift ;;
+            --sign) key="${2:?}"; shift ;;
+            --rebuild) rebuild=1 ;;
+            -*) die "Unknown option $1" ;;
+            *) names+=("$1") ;;
+        esac
+        shift
+    done
+    if ! command -v makepkg >/dev/null || ! command -v repo-add >/dev/null; then
+        die "Building needs makepkg and repo-add (Arch's pacman package)."
+    fi
+    [[ $EUID -ne 0 ]] || die "makepkg won't run as root; build as a normal user."
+    mkdir -p "$out"
+    out="$(realpath "$out")"
+    local db="$out/$REPO_NAME.db.tar.gz" sign_make=() sign_repo=()
+    if [[ -n "$key" ]]; then
+        sign_make=(--sign --key "$key")
+        sign_repo=(--sign --key "$key" --verify)
+    fi
+
+    local have d files f missing built=() wanted=() n build
+    mapfile -t have < <(db_filenames "$db")
+    while read -r d; do
+        # makepkg's own idea of the file names; debug packages are left out of [jarch]
+        mapfile -t files < <(cd "$d" && PKGDEST="$out" makepkg --packagelist | grep -v -- '-debug-')
+        [[ ${#files[@]} -gt 0 ]] || die "makepkg --packagelist failed for $d"
+        for f in "${files[@]}"; do wanted+=("$(basename "$f")"); done
+        missing=0
+        for f in "${files[@]}"; do
+            n="$(basename "$f")"
+            if [[ ! -f "$f" ]] && ! printf '%s\n' "${have[@]}" | grep -qxF "$n"; then missing=1; fi
+        done
+        if [[ $rebuild == 0 && $missing == 0 ]]; then
+            ok "$(basename "$d"): $(basename "${files[0]}") already in the repo"
+            continue
+        fi
+        info "Building $(basename "$d")"
+        build="$(mktemp -d)"
+        # --cleanbuild/BUILDDIR keep src/ and pkg/ out of the checkout
+        (cd "$d" && PKGDEST="$out" BUILDDIR="$build" SRCDEST="$build/sources" \
+            makepkg --syncdeps --noconfirm --cleanbuild --clean --force "${sign_make[@]}")
+        rm -rf "$build"
+        for f in "${files[@]}"; do
+            [[ -f "$f" ]] || die "makepkg didn't produce $f"
+            built+=("$f")
+        done
+    done < <(pkg_dirs "${names[@]}")
+
+    if [[ ${#built[@]} -gt 0 ]]; then
+        # -R drops the replaced versions' files from $out
+        repo-add -R "${sign_repo[@]}" "$db" "${built[@]}"
+    fi
+
+    # On a full build, drop packages whose PKGBUILD has gone
+    if [[ ${#names[@]} -eq 0 && -f "$db" ]]; then
+        local stale=()
+        while read -r n; do
+            printf '%s\n' "${wanted[@]}" | grep -qxF "$n" || stale+=("$n")
+        done < <(db_filenames "$db")
+        if [[ ${#stale[@]} -gt 0 ]]; then
+            local gone=()
+            for n in "${stale[@]}"; do
+                # name-pkgver-pkgrel-arch.pkg.tar.* -> name
+                gone+=("$(sed -E 's/-[^-]+-[^-]+-[^-]+\.pkg\.tar\.[^.]+$//' <<<"$n")")
+            done
+            info "Removing from the repo: ${gone[*]}"
+            repo-remove "${sign_repo[@]}" "$db" "${gone[@]}"
+            for n in "${stale[@]}"; do rm -f "$out/$n" "$out/$n.sig"; done
+        fi
+    fi
+    [[ -f "$db" ]] || die "No packages built and no existing database at $db"
+    ok "[${REPO_NAME}] at $out: ${#built[@]} package(s) built"
+}
+
+main() {
+    local cmd="${1:-help}"
+    [[ $# -gt 0 ]] && shift
+    case "$cmd" in
+        list) cmd_list "$@" ;;
+        new) cmd_new "$@" ;;
+        import) cmd_import "$@" ;;
+        update) cmd_update "$@" ;;
+        outdated) cmd_outdated "$@" ;;
+        build) cmd_build "$@" ;;
+        version) cmd_version "$@" ;;
+        help|-h|--help) usage ;;
+        *) usage >&2; exit 2 ;;
+    esac
+}
+
+main "$@"

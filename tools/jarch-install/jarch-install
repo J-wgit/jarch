@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# /usr/bin/jarch-install from the jarch-install package. The installer itself
+# lives in your jarch checkout (your dotfiles are symlinks into it), so this
+# runs the checkout's install/jarch-install, cloning the repo first if needed.
+set -euo pipefail
+
+env_file="${XDG_CONFIG_HOME:-$HOME/.config}/jarch/env"
+# shellcheck source=/dev/null
+[[ -z "${JARCH_DIR:-}" && -f "$env_file" ]] && source "$env_file"
+JARCH_DIR="${JARCH_DIR:-$HOME/.jarch}"
+JARCH_GIT="${JARCH_GIT:-https://github.com/J-wgit/jarch}"
+
+if [[ ! -x "$JARCH_DIR/install/jarch-install" ]]; then
+    [[ -e "$JARCH_DIR" ]] && { echo "jarch-install: $JARCH_DIR exists but isn't a jarch checkout" >&2; exit 1; }
+    echo "Cloning $JARCH_GIT into $JARCH_DIR"
+    git clone "$JARCH_GIT" "$JARCH_DIR"
+fi
+exec "$JARCH_DIR/install/jarch-install" "$@"
