@@ -49,9 +49,11 @@ if [[ "$expect" == repo ]]; then
         check "[jarch] requires signatures" "grep -qx 'SigLevel = Required DatabaseOptional' /etc/pacman.conf"
     fi
 fi
-check "jarch-manager runs" "[[ \$(command -v jarch-manager) == /usr/bin/jarch-manager ]] && jarch-manager version | grep -q 'v1.0.0'"
-check "jarch-install launcher finds the checkout" "[[ \$(command -v jarch-install) == /usr/bin/jarch-install ]] && jarch-install --list | grep -q 50-tools"
-check "docs installed" "[[ -f /usr/share/doc/jarch-manager/README.md ]]"
+# outputs are captured first: grep -q closing a pipe early would trip pipefail
+check "jarch-manager runs as a user" "[[ \$(command -v jarch-manager) == /usr/bin/jarch-manager && \$(jarch-manager version) == *v1.0.0* ]]"
+check "jarch-install launcher finds the checkout" "[[ \$(command -v jarch-install) == /usr/bin/jarch-install && \$(jarch-install --list) == *50-tools* ]]"
+# (the archlinux image's NoExtract skips docs on disk, so ask the package)
+check "jarch-manager ships its docs" "[[ \$(pacman -Qlq jarch-manager) == */usr/share/doc/jarch-manager/README.md* ]]"
 check "pacman Color on" "grep -q '^Color' /etc/pacman.conf"
 check "install state recorded" "[[ -f ~/.local/state/jarch/installed ]]"
 exit $fail

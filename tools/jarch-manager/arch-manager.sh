@@ -80,9 +80,14 @@ confirm_action() {
 }
 
 create_dirs() {
-    sudo mkdir -p "$LOG_DIR"
-    mkdir -p "$BACKUP_DIR"
     mkdir -p "$(dirname "$CONFIG_FILE")"
+}
+
+# The backup dir lives under /var, so it's created (owned by you) with sudo,
+# and only by the commands that write backups
+ensure_backup_dir() {
+    [[ -w "$BACKUP_DIR" ]] && return 0
+    sudo install -d -o "$(id -un)" -g "$(id -gn)" "$BACKUP_DIR"
 }
 
 ################################################################################
@@ -548,6 +553,7 @@ monitor_network() {
 
 backup_package_list() {
     print_header "Backup Package List"
+    ensure_backup_dir
 
     local backup_file="$BACKUP_DIR/packages-$(date +%Y%m%d-%H%M%S).txt"
     local aur_file="$BACKUP_DIR/packages-aur-$(date +%Y%m%d-%H%M%S).txt"
@@ -565,6 +571,7 @@ backup_package_list() {
 
 backup_config_files() {
     print_header "Backup Configuration Files"
+    ensure_backup_dir
 
     local backup_file="$BACKUP_DIR/config-backup-$(date +%Y%m%d-%H%M%S).tar.gz"
 
