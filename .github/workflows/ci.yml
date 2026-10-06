@@ -12,7 +12,8 @@ jobs:
       - uses: actions/checkout@v5
       - name: shellcheck
         run: |
-          shellcheck -x install/jarch-install install/lib/*.sh install/stages/*.sh tests/*.sh tests/stubs/*
+          shellcheck -x install/jarch-install install/lib/*.sh install/stages/*.sh tests/*.sh tests/stubs/* \
+            tools/jarch-pkg/jarch-pkg tools/jarch-install/jarch-install .github/scripts/*.sh
           shellcheck -S error tools/jarch-manager/arch-manager.sh
 
   packages-exist:
@@ -23,18 +24,39 @@ jobs:
       - name: Check every listed package exists in the repos
         run: tests/check-packages.sh
 
+  packages:
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - name: Install git (so checkout keeps .git for package versions)
+        run: pacman -Syu --noconfirm --needed git
+      - uses: actions/checkout@v5
+      - name: Build pkgbuilds/ into a signed [jarch] repo (throwaway key)
+        run: JARCH_TEST_SIGN=1 .github/scripts/build-repo.sh out/repo
+      - name: Package list
+        run: sudo -u builder tools/jarch-pkg/jarch-pkg list
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jarch-repo
+          path: out/repo
+
   install-base:
+    needs: packages
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - name: Real install of the base profile in an Arch container
-        run: tests/container-install.sh base
+      - uses: actions/download-artifact@v4
+        with:
+          name: jarch-repo
+          path: out/repo
+      - name: Real install of the base profile in an Arch container, tools from the built [jarch]
+        run: JARCH_TEST_REPO=out/repo tests/container-install.sh base
 
   install-kde:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - name: Real install of the KDE profile in an Arch container
+      - name: Real install of the KDE profile in an Arch container (tools from the published [jarch], or built locally)
         run: tests/container-install.sh kde
 
   install-offline:
@@ -42,4 +64,6 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Stubbed install of all profiles (dry run, install, idempotent re-run)
-        run: tests/offline-install.sh base,desktop,dev,kde
+        run: tests/offline-install.sh base,desktop,dev,kde repo
+      - name: Same, with [jarch] unreachable (Jarch's packages built locally)
+        run: tests/offline-install.sh base,desktop,dev,kde norepo

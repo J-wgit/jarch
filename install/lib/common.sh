@@ -89,3 +89,31 @@ kconfig_args() {
     for g in "${KC_GROUPS[@]}"; do printf '%s\n' --group "$g"; done
     printf '%s\n' --key "$KC_KEY"
 }
+
+# pkgbuild_version <dir> — "[epoch:]pkgver-pkgrel" a PKGBUILD would build
+# (sourced the way makepkg does, so computed versions work)
+pkgbuild_version() {
+    (
+        cd "$1" || exit 1
+        # shellcheck disable=SC2034  # read by Jarch's PKGBUILDs
+        startdir="$PWD"
+        # shellcheck disable=SC1091
+        source ./PKGBUILD
+        # shellcheck disable=SC2154  # set by the PKGBUILD
+        echo "${epoch:+$epoch:}$pkgver-$pkgrel"
+    )
+}
+
+# jarch_siglevel — SigLevel for the [jarch] section
+jarch_siglevel() {
+    if [[ -n "${JARCH_REPO_SIGLEVEL:-}" ]]; then echo "$JARCH_REPO_SIGLEVEL"
+    elif [[ -f "$JARCH_DIR/keys/jarch.asc" ]]; then echo "Required DatabaseOptional"
+    else echo "Optional TrustAll"
+    fi
+}
+
+# jarch_repo_block — the [jarch] section jarch-install keeps in pacman.conf
+jarch_repo_block() {
+    printf '%s\n' "# BEGIN jarch (managed by jarch-install; settings in jarch.conf)" \
+        "[jarch]" "SigLevel = $(jarch_siglevel)" "Server = $JARCH_REPO_SERVER" "# END jarch"
+}

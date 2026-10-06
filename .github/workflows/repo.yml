@@ -1,0 +1,46 @@
+name: Package repo
+
+# Builds pkgbuilds/ and publishes the [jarch] pacman repo as the assets of the
+# "repo-x86_64" release. Only new versions are built; see pkgbuilds/README.md.
+on:
+  push:
+    branches: [main]
+    paths:
+      - pkgbuilds/**
+      - tools/**
+      - .github/scripts/**
+      - .github/workflows/repo.yml
+  workflow_dispatch:
+    inputs:
+      rebuild:
+        description: Rebuild and re-upload every package (e.g. after adding a signing key)
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: jarch-repo
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - name: Install git (so checkout keeps .git for package versions)
+        run: pacman -Syu --noconfirm --needed git
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Build new package versions and publish [jarch]
+        run: .github/scripts/publish-repo.sh
+        env:
+          # Defaults publish to this repo's releases. To serve [jarch] from
+          # another (e.g. public) repo, set the JARCH_PUBLISH_REPO variable and
+          # a JARCH_PUBLISH_TOKEN secret that can write to it.
+          GH_REPO: ${{ vars.JARCH_PUBLISH_REPO || github.repository }}
+          GH_TOKEN: ${{ secrets.JARCH_PUBLISH_TOKEN || github.token }}
+          JARCH_SIGNING_KEY: ${{ secrets.JARCH_SIGNING_KEY }}
+          REBUILD: ${{ inputs.rebuild && '1' || '' }}

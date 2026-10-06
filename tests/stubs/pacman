@@ -1,9 +1,25 @@
 #!/usr/bin/env bash
 # Stub pacman for offline tests: records calls, tracks "installed" packages in $STUB_DB.
+# $STUB_JARCH, if set, is a file of "name version" lines: what the [jarch] repo offers.
 echo "pacman $*" >>"${STUB_LOG:?}"
+jarch_ver() { [[ -f "${STUB_JARCH:-}" ]] && awk -v p="$1" '$1 == p { print $2 }' "$STUB_JARCH"; }
 case "$1" in
-    -Qq|-Qi|-Q) grep -qx "$2" "$STUB_DB" 2>/dev/null ;;
-    -S*) for a in "$@"; do [[ "$a" == -* ]] || echo "$a" >>"$STUB_DB"; done ;;
+    -Qq) grep -qx "$2" "$STUB_DB" 2>/dev/null; exit ;;
+    -Q|-Qi)
+        grep -qx "$2" "$STUB_DB" 2>/dev/null || exit 1
+        v="$(awk -v p="$2" '$1 == "ver" && $2 == p { print $3 }' "$STUB_DB")"
+        echo "$2 ${v:-1-stub}" ;;
+    -Qo) exit 1 ;;
+    -Sl) [[ "$2" == jarch && -f "${STUB_JARCH:-}" ]] && sed 's/^/jarch /' "$STUB_JARCH" ;;
+    -S*)
+        for a in "$@"; do
+            [[ "$a" == -* ]] && continue
+            a="${a#*/}"
+            echo "$a" >>"$STUB_DB"
+            v="$(jarch_ver "$a")"
+            [[ -n "$v" ]] && echo "ver $a $v" >>"$STUB_DB"
+        done ;;
     -R*) for a in "$@"; do [[ "$a" == -* ]] || sed -i "/^${a}\$/d" "$STUB_DB"; done ;;
     *) exit 0 ;;
 esac
+exit 0

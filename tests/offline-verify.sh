@@ -3,7 +3,7 @@
 # shellcheck disable=SC2088  # "~" in check labels is display text
 set -euo pipefail
 JARCH_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-IFS=',' read -ra PROFILES <<<"${1:-base}"
+IFS=',' read -ra PROFILES <<<"${1:-base}"  # $2: repo or norepo, as offline-install.sh
 [[ "${PROFILES[0]}" == base ]] || PROFILES=(base "${PROFILES[@]}")
 source "$JARCH_DIR/install/lib/common.sh"
 fail=0
@@ -47,8 +47,19 @@ if has_profile kde; then
     check "SDDM drop-in written as a whole file" "[[ \$(stat -c %U:%a /etc/sddm.conf.d/jarch.conf) == root:644 ]] && grep -qx '\\[Theme\\]' /etc/sddm.conf.d/jarch.conf"
     check "second run doesn't rewrite KDE settings" "! grep -q kwriteconfig6 /stub/log"
 fi
-check "jarch-manager installed" "[[ -x /usr/local/bin/jarch-manager ]] && bash -n /usr/local/bin/jarch-manager"
-check "jarch-install on PATH" "[[ -L /usr/local/bin/jarch-install ]]"
+if [[ "${2:-repo}" == repo ]]; then
+    check "[jarch] repo added to pacman.conf once" "[[ \$(grep -c '^\\[jarch\\]' /etc/pacman.conf) == 1 ]] && grep -q '^Server = https://github.com/J-wgit/jarch/releases/download/repo-\\\$arch' /etc/pacman.conf"
+    while read -r p; do
+        check "$p installed from [jarch]" "grep -q 'pacman -S --needed --noconfirm jarch/$p' /stub/log.first"
+    done < <(profile_items jarch)
+    check "second run doesn't reinstall [jarch] packages" "! grep -q 'jarch/' /stub/log"
+else
+    check "unreachable [jarch] not added to pacman.conf" "! grep -q '^\\[jarch\\]' /etc/pacman.conf"
+    while read -r p; do
+        check "$p built from pkgbuilds/" "grep -qx 'ver $p .*' /stub/db && grep -qx '$p-debug' /stub/db"
+    done < <(profile_items jarch)
+fi
+check "old /usr/local/bin tools removed" "[[ ! -e /usr/local/bin/jarch-manager && ! -L /usr/local/bin/jarch-install ]]"
 check "starship config is valid TOML" "python3 -c 'import tomllib;tomllib.load(open(\"$HOME/.config/starship.toml\",\"rb\"))'"
 check "install state recorded" "grep -q 'profiles=${PROFILES[*]}' ~/.local/state/jarch/installed"
 exit $fail

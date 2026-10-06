@@ -1,0 +1,4 @@
+# Packages from the [jarch] repo (pkgbuilds/<name>), installed by the tools stage.
+# If [jarch] is unreachable they are built from pkgbuilds/ on this machine.
+jarch-manager
+jarch-install
