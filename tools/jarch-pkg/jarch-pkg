@@ -154,7 +154,7 @@ upstream_url() {
 
 # upstream_files <checkout> — packaging files to copy (no VCS or generated files)
 upstream_files() {
-    (cd "$1" && git ls-files | grep -vxE '\.SRCINFO|\.gitignore|\.nvchecker\.toml|REUSE\.toml|LICENSES/.*|keys/.*' || true)
+    git -C "$1" ls-files | { grep -vxE '\.SRCINFO|\.gitignore|\.nvchecker\.toml|REUSE\.toml|LICENSES/.*|keys/.*' || true; }
 }
 
 cmd_import() {
