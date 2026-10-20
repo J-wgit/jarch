@@ -44,9 +44,12 @@ while read -r p; do
     fi
 done < <(profile_items jarch)
 if [[ "$expect" == repo ]]; then
-    check "[jarch] listed above [core]" "[[ \$(grep -nx '\\[jarch\\]' /etc/pacman.conf | cut -d: -f1) -lt \$(grep -nx '\\[core\\]' /etc/pacman.conf | cut -d: -f1) ]]"
     if [[ -f "$JARCH_DIR/keys/jarch.asc" ]]; then
+        check "[jarch] listed above [core]" "[[ \$(grep -nx '\\[jarch\\]' /etc/pacman.conf | cut -d: -f1) -lt \$(grep -nx '\\[core\\]' /etc/pacman.conf | cut -d: -f1) ]]"
         check "[jarch] requires signatures" "grep -qx 'SigLevel = Required DatabaseOptional' /etc/pacman.conf"
+    else
+        # unsigned: never allowed to shadow official packages
+        check "[jarch] listed below [core]" "[[ \$(grep -nx '\\[jarch\\]' /etc/pacman.conf | cut -d: -f1) -gt \$(grep -nx '\\[core\\]' /etc/pacman.conf | cut -d: -f1) ]]"
     fi
 fi
 # outputs are captured first: grep -q closing a pipe early would trip pipefail

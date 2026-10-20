@@ -42,7 +42,11 @@ fi
 _jarch_conf() {  # current pacman.conf with the [jarch] section as configured
     local block=""
     [[ "${JARCH_REPO:-1}" == 1 ]] && block="$(jarch_repo_block)"
-    JARCH_BLOCK="$block" awk -v first="${JARCH_REPO_FIRST:-1}" '
+    # Above [core] only when signatures are required: an unsigned repo listed
+    # first could replace any official package, glibc and pacman included.
+    local first="${JARCH_REPO_FIRST:-1}"
+    [[ "$(jarch_siglevel)" == Required* ]] || first=0
+    JARCH_BLOCK="$block" awk -v first="$first" '
         BEGIN { block = ENVIRON["JARCH_BLOCK"] }
         # the blank line before the old section goes with it, so re-runs are stable
         /^# BEGIN jarch/ { skip = 1; if (blank) blank--; next }
@@ -67,6 +71,9 @@ else
         warn "Can't reach the [jarch] repo ($_db). Jarch's packages will be built from pkgbuilds/ instead."
         grep -q '^# BEGIN jarch' "$_pconf" && warn "Leaving the existing [jarch] section in $_pconf as it is."
     else
+        if [[ "${JARCH_REPO_FIRST:-1}" == 1 && "$(jarch_siglevel)" != Required* ]]; then
+            warn "[jarch] is unsigned, so it goes below [core]: official packages win until keys/jarch.asc is added."
+        fi
         if [[ "$(jarch_siglevel)" == Required* && -f "$JARCH_DIR/keys/jarch.asc" ]]; then
             _fpr="$(gpg --with-colons --import-options show-only --import "$JARCH_DIR/keys/jarch.asc" 2>/dev/null | awk -F: '/^fpr/ { print $10; exit }')"
             [[ -n "$_fpr" ]] || die "keys/jarch.asc isn't a valid GPG public key"

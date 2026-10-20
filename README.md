@@ -43,7 +43,7 @@ Every stage is idempotent: re-running only does what's missing. Logs go to
 
 | Stage | |
 |---|---|
-| `00-preflight` | Checks it's Arch, you're not root, sudo and network work; turns on pacman Color, ParallelDownloads, ILoveCandy (and multilib if enabled); adds the `[jarch]` repo above `[core]` if it can reach it |
+| `00-preflight` | Checks it's Arch, you're not root, sudo and network work; turns on pacman Color, ParallelDownloads, ILoveCandy (and multilib if enabled); adds the `[jarch]` repo if it can reach it (above `[core]` once it's signed) |
 | `10-packages` | `pacman -Syu --needed` everything in `profiles/<profile>/pacman` |
 | `20-aur` | Installs `paru` (or `yay`) from the AUR if missing or broken: the prebuilt `-bin` first, falling back to a source build if it can't run against your pacman. Then installs `profiles/<profile>/aur` |
 | `30-dotfiles` | Links `dotfiles/<pkg>` into `$HOME` with GNU stow (`--no-folding`). Anything in the way is moved to `~/.local/state/jarch/backup/<timestamp>/` first |
@@ -127,8 +127,9 @@ alongside custom builds of open-source packages. Each lives in
 
 - New Jarch tool: `jarch-pkg new <name>`, then list it in a profile's `jarch` file.
 - Patched or reconfigured build of an Arch or AUR package: `jarch-pkg import <name> [--aur]`,
-  edit the PKGBUILD, commit. `[jarch]` sits above `[core]`, so your build replaces the
-  official one. `jarch-pkg outdated` and `jarch-pkg update <name>` keep forks current.
+  edit the PKGBUILD, commit. Once the repo is signed, `[jarch]` sits above `[core]`, so
+  your build replaces the official one (unsigned, it sits last and official packages win).
+  `jarch-pkg outdated` and `jarch-pkg update <name>` keep forks current.
 
 Packages are unsigned until you add a signing key. Details, signing and
 hosting: [pkgbuilds/README.md](pkgbuilds/README.md). Repo settings
