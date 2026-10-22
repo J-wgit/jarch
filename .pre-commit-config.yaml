@@ -1,0 +1,35 @@
+# The same gates CI runs, before every commit. Install once:
+#   pip install pre-commit && pre-commit install
+# (default_install_hook_types installs the commit-msg hook too). Never skip with --no-verify.
+default_install_hook_types: [pre-commit, commit-msg]
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-merge-conflict
+      - id: check-yaml
+        args: [--allow-multiple-documents, --unsafe]
+      - id: check-toml
+      - id: check-added-large-files
+        args: [--maxkb=1024]
+      - id: detect-private-key
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v3.4.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+  - repo: local
+    hooks:
+      - id: shellcheck
+        name: shellcheck
+        entry: shellcheck -x
+        language: system
+        types: [shell]
+        # The scripts CI checks; the bash dotfiles and arch-manager.sh have known warnings.
+        files: '^(install/|tests/|tools/jarch-(pkg|install)/|\.github/scripts/)'
+      - id: binder
+        name: binder matches binder.toml
+        entry: sh -c 'command -v wv >/dev/null 2>&1 || { echo "wv not installed, skipping (pip install weave-agents)"; exit 0; }; wv binder check'
+        language: system
+        pass_filenames: false
+        files: '^(binder\.toml|AGENTS\.md|STATUS\.md|CLAUDE\.md|docs/.*\.md)$'
