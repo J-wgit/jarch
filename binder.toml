@@ -1,0 +1,80 @@
+# The repo binder: AGENTS.md (CLAUDE.md links to it) and STATUS.md are rendered from
+# this file by `wv binder build` (Weave). Shape: yard's contracts/binder.schema.json.
+name = "Jarch"
+summary = """
+A customized, riced Arch Linux, built as a re-runnable installer over a vanilla Arch \
+install, plus the `[jarch]` pacman repo that serves its own tools and custom builds. An \
+archiso image comes later and wraps the same installer."""
+conventions = "0.1"
+adr_dir = "docs/adr"
+rules = [
+    "Every installer stage is idempotent: a re-run only does what's missing, and `--dry-run` changes nothing. `tests/offline-install.sh` checks both; keep it passing.",
+    "Shell is checked by `shellcheck -x` (config in `.shellcheckrc`); a new script joins the CI shellcheck list.",
+    "Profiles are data: one item per line in `profiles/<name>/<list>`. A package in a list must exist in the Arch repos or have a PKGBUILD (`tests/check-packages.sh`).",
+    "Never touch the developer's own system in tests: they run in containers or with pacman, makepkg and systemctl stubbed.",
+    "Publishing `[jarch]` and signing keys are owner-only: CI publishes on merge to `main`; never add a real key or publish by hand.",
+]
+done = [
+    "shellcheck is clean and `tests/offline-install.sh` passes; a package-list change also passes `tests/check-packages.sh`.",
+]
+
+[[commands]]
+name = "lint"
+run = "shellcheck -x install/jarch-install install/lib/*.sh install/stages/*.sh tests/*.sh"
+
+[[commands]]
+name = "test: stubbed installer in Docker, dry run + install + re-run"
+run = "tests/offline-install.sh"
+
+[[commands]]
+name = "test: every listed package exists"
+run = "tests/check-packages.sh"
+
+[[commands]]
+name = "test: real install in an archlinux container"
+run = "tests/container-install.sh"
+
+[[commands]]
+name = "install"
+run = "~/.jarch/install/jarch-install --profile desktop"
+
+[[commands]]
+name = "binder"
+run = "wv binder check"
+
+[[layout]]
+path = "jarch.conf"
+what = "settings: AUR helper, pacman tweaks, [jarch] repo, default profiles, login shell"
+
+[[layout]]
+path = "install/"
+what = "`jarch-install` entry point, `lib/common.sh`, `stages/NN-name.sh` run in order"
+
+[[layout]]
+path = "profiles/<name>/"
+what = "pacman, aur, jarch, dotfiles, services, user-services, groups, kconfig lists"
+
+[[layout]]
+path = "dotfiles/<pkg>/"
+what = "stow packages: bash, starship, hypr, waybar, kitty, rofi, dunst, kde"
+
+[[layout]]
+path = "pkgbuilds/<name>/"
+what = "packages served from [jarch]: Jarch's tools and custom builds of upstream packages"
+
+[[layout]]
+path = "tools/"
+what = "jarch-manager, jarch-pkg, the jarch-install launcher"
+
+[[layout]]
+path = "tests/"
+what = "offline, container and package-existence tests"
+
+[status]
+milestone = "Phase 1: the installer MVP and the `[jarch]` package repo."
+in_flight = []
+next = [
+    "Phase 2: theming.",
+    "Phase 4: the archiso image wrapping the installer.",
+]
+updated = "2026-10-22"
