@@ -13,15 +13,17 @@ jobs:
       - name: shellcheck
         run: |
           shellcheck -x install/jarch-install install/lib/*.sh install/stages/*.sh tests/*.sh tests/stubs/* \
-            tools/jarch-pkg/jarch-pkg tools/jarch-install/jarch-install .github/scripts/*.sh
+            tools/jarch-pkg/jarch-pkg tools/jarch-install/jarch-install .github/scripts/*.sh pkgbuilds/jarch-meta.sh
           shellcheck -S error tools/jarch-manager/arch-manager.sh
 
-  jarch-manager:
+  unit:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - name: jarch-manager with pacman, sudo and systemctl stubbed
         run: tests/jarch-manager.sh
+      - name: Every profile's meta-package depends on exactly its lists
+        run: tests/meta-packages.sh
 
   packages-exist:
     runs-on: ubuntu-latest

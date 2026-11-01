@@ -2,3 +2,4 @@
 # If [jarch] is unreachable they are built from pkgbuilds/ on this machine.
 jarch-manager
 jarch-install
+jarch-meta-base     # the profile as a package: pacman -Syu installs what the lists gain
