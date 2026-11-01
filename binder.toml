@@ -52,7 +52,7 @@ what = "`jarch-install` entry point, `lib/common.sh`, `stages/NN-name.sh` run in
 
 [[layout]]
 path = "profiles/<name>/"
-what = "pacman, aur, jarch, dotfiles, services, user-services, groups, kconfig lists"
+what = "pacman, multilib, aur, jarch, dotfiles, services, user-services, groups, kconfig lists"
 
 [[layout]]
 path = "dotfiles/<pkg>/"

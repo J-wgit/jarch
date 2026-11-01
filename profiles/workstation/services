@@ -1,0 +1,9 @@
+plasmalogin.service    # Plasma Login Manager
+docker.service
+libvirtd.service
+nix-daemon.socket
+ollama.service
+grub-btrfsd.service    # adds new snapshots to the GRUB menu
+# Snapper snapshots need a config first, once: sudo snapper -c root create-config /
+snapper-timeline.timer
+snapper-cleanup.timer

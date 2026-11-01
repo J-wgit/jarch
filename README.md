@@ -16,6 +16,7 @@ git clone https://github.com/J-wgit/jarch ~/.jarch
 ~/.jarch/install/jarch-install            # base + desktop (Hyprland)
 # or: ~/.jarch/install/jarch-install --profile kde        # KDE Plasma workstation
 # or: ~/.jarch/install/jarch-install --profile desktop,dev
+# or: ~/.jarch/install/jarch-install --profile workstation,nvidia  # niri + Plasma, NVIDIA
 ```
 
 3. Reboot. SDDM starts; pick Hyprland or Plasma.
@@ -28,7 +29,7 @@ Keep `~/.jarch` where it is: your dotfiles are symlinks into it. To update, `git
 ### Options
 
 ```
--p, --profile LIST   base (always), desktop, kde, dev
+-p, --profile LIST   base (always), desktop, kde, dev, workstation, nvidia
     --only LIST      run only some stages, e.g. --only dotfiles
     --skip LIST      e.g. --skip aur,services
 -n, --dry-run        show what would happen, change nothing
@@ -43,8 +44,8 @@ Every stage is idempotent: re-running only does what's missing. Logs go to
 
 | Stage | |
 |---|---|
-| `00-preflight` | Checks it's Arch, you're not root, sudo and network work; turns on pacman Color, ParallelDownloads, ILoveCandy (and multilib if enabled); adds the `[jarch]` repo above `[core]` if it can reach it |
-| `10-packages` | `pacman -Syu --needed` everything in `profiles/<profile>/pacman` |
+| `00-preflight` | Checks it's Arch, you're not root, sudo and network work; turns on pacman Color, ParallelDownloads, ILoveCandy (and multilib if enabled, or if a profile has a `multilib` list); adds the `[jarch]` repo above `[core]` if it can reach it |
+| `10-packages` | `pacman -Syu --needed` everything in `profiles/<profile>/pacman` and `multilib` |
 | `20-aur` | Installs `paru` (or `yay`) from the AUR if missing or broken: the prebuilt `-bin` first, falling back to a source build if it can't run against your pacman. Then installs `profiles/<profile>/aur` |
 | `30-dotfiles` | Links `dotfiles/<pkg>` into `$HOME` with GNU stow (`--no-folding`). Anything in the way is moved to `~/.local/state/jarch/backup/<timestamp>/` first |
 | `35-kconfig` | Applies the KDE settings in `profiles/<profile>/kconfig` with `kwriteconfig6`, only where the value differs |
@@ -60,7 +61,7 @@ install/
   jarch-install         entry point
   lib/common.sh         logging, dry-run, list helpers
   stages/NN-name.sh     one file per stage, run in order
-profiles/<name>/        pacman, aur, jarch, dotfiles, services, user-services, groups, kconfig (one item per line, # comments)
+profiles/<name>/        pacman, multilib, aur, jarch, dotfiles, services, user-services, groups, kconfig (one item per line, # comments)
 dotfiles/<pkg>/         stow packages: bash, starship, hypr, waybar, kitty, rofi, dunst, kde
 pkgbuilds/<name>/       packages served from [jarch]: Jarch's tools and custom builds of upstream packages
 tools/                  jarch-manager (moved in from J-wgit/Scripts), jarch-pkg, the jarch-install launcher
@@ -73,6 +74,15 @@ tests/                  CI tests (see below)
 - **desktop**: Hyprland, Waybar, Kitty, Rofi, Dunst, hyprlock/hypridle/hyprpaper, PipeWire, Bluetooth, SDDM, Thunar, Firefox, Nerd fonts.
 - **kde**: a trimmed KDE Plasma workstation, FOSS only, KDE apps first. See below.
 - **dev**: Python tooling, Node, Rust (rustup), Go, Docker, ctags, GitHub CLI.
+- **workstation**: Jay's machine. niri with DankMaterialShell, a trimmed Plasma
+  alongside it, Plasma Login Manager, btrfs + snapper + grub-btrfs, zram swap,
+  Docker/Podman/libvirt/Nix, a broad dev toolchain, Steam (turns on multilib).
+  AUR packages come prebuilt from `[jarch]` (`etcher-bin`, `bombadillo`);
+  `docker-desktop` is built locally by paru, since its licence doesn't allow
+  redistribution. Use it instead of `desktop`/`kde` (those bring SDDM). Run
+  `sudo snapper -c root create-config /` once for snapshots. No theming yet.
+- **nvidia**: open NVIDIA kernel modules (DKMS), VA-API, CUDA for ollama, the
+  32-bit driver for Steam. Add it to any desktop profile on an NVIDIA machine.
 
 Add a profile by creating `profiles/<name>/` with any of the list files.
 

@@ -1,0 +1,5 @@
+# AUR packages served prebuilt from the [jarch] repo (pkgbuilds/<name>).
+# If [jarch] is unreachable they are built on this machine from pkgbuilds/.
+etcher-bin            # balenaEtcher from upstream's release (the AUR's balena-etcher
+                      # needs electron37, a from-source Chromium build)
+bombadillo            # Gopher/Gemini terminal client
