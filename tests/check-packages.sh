@@ -20,6 +20,7 @@ done
 # on, so the system's pacman.conf stays as it is
 if compgen -G 'profiles/*/multilib' >/dev/null; then
     ml="$(mktemp -d)"
+    chmod 755 "$ml"  # pacman downloads as the unprivileged alpm user
     trap 'rm -rf "$ml"' EXIT
     sed '/^#\[multilib\]/,/^#Include/ s/^#//' /etc/pacman.conf >"$ml/pacman.conf"
     grep -q '^\[multilib\]' "$ml/pacman.conf" || printf '\n[multilib]\nInclude = /etc/pacman.d/mirrorlist\n' >>"$ml/pacman.conf"

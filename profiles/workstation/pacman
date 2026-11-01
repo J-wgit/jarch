@@ -24,7 +24,8 @@ wpa_supplicant
 niri
 xwayland-satellite    # X11 apps under niri
 xdg-desktop-portal-gnome  # niri's recommended portal (screencast, file dialogs)
-dms-shell             # DankMaterialShell: bar, launcher, notifications, lock
+quickshell            # what DankMaterialShell (from [jarch]) runs on
+dgop
 matugen               # wallpaper colours for DMS
 cava                  # audio visualiser in DMS
 fuzzel
@@ -90,7 +91,6 @@ lazygit
 lazyjj
 glow
 navi
-tlrc
 thefuck
 tree
 micro
