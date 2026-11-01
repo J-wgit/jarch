@@ -56,6 +56,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          # full history: Jarch's tools version by commit count, and verify.sh
+          # compares that with what the published [jarch] serves
+          fetch-depth: 0
       - name: Real install of the KDE profile in an Arch container (tools from the published [jarch], or built locally)
         run: tests/container-install.sh kde
 
