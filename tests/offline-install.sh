@@ -15,7 +15,7 @@ stub_env="STUB_JARCH=/stub/jarch"
 docker run --rm -v "$PWD:/src:ro" -e DEBIAN_FRONTEND=noninteractive ubuntu:24.04 bash -euo pipefail -c "
     apt-get update -qq >/dev/null && apt-get install -y -qq stow sudo git python3 >/dev/null
     touch /etc/arch-release
-    printf '[options]\n#Color\n#ParallelDownloads = 5\n' > /etc/pacman.conf
+    printf '[options]\n#Color\n#ParallelDownloads = 5\n\n#[multilib]\n#Include = /etc/pacman.d/mirrorlist\n' > /etc/pacman.conf
     useradd -m -s /bin/sh tester
     echo 'tester ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/tester
     echo 'old bashrc' > /home/tester/.bashrc

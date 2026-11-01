@@ -34,7 +34,9 @@ fi
 if [[ "$PACMAN_ILOVECANDY" == 1 ]] && ! grep -q '^ILoveCandy' "$_pconf"; then
     run sudo sed -i '/^ParallelDownloads/a ILoveCandy' "$_pconf" && ok "pacman: ILoveCandy on"
 fi
-if [[ "$ENABLE_MULTILIB" == 1 ]] && ! grep -q '^\[multilib\]' "$_pconf"; then
+# multilib: on in jarch.conf, or needed by a profile's multilib list
+if { [[ "$ENABLE_MULTILIB" == 1 ]] || [[ -n "$(profile_items multilib)" ]]; } \
+    && ! grep -q '^\[multilib\]' "$_pconf"; then
     run sudo sed -i '/^#\[multilib\]/,/^#Include/ s/^#//' "$_pconf" && ok "pacman: multilib enabled"
 fi
 

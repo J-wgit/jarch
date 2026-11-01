@@ -64,6 +64,10 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Stubbed install of all profiles (dry run, install, idempotent re-run)
-        run: tests/offline-install.sh base,desktop,dev,kde repo
+        run: |
+          tests/offline-install.sh base,desktop,dev,kde repo
+          tests/offline-install.sh base,workstation,nvidia repo
       - name: Same, with [jarch] unreachable (Jarch's packages built locally)
-        run: tests/offline-install.sh base,desktop,dev,kde norepo
+        run: |
+          tests/offline-install.sh base,desktop,dev,kde norepo
+          tests/offline-install.sh base,workstation,nvidia norepo

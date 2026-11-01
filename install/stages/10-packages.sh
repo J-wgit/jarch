@@ -1,7 +1,8 @@
 # shellcheck shell=bash
 # desc: install official packages for the active profiles
 
-mapfile -t _pkgs < <(profile_items pacman)
+# multilib packages too: the preflight stage turned [multilib] on for them
+mapfile -t _pkgs < <(profile_items pacman; profile_items multilib)
 if [[ ${#_pkgs[@]} -eq 0 ]]; then
     info "No packages listed"
 else
