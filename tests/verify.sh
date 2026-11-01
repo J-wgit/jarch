@@ -37,8 +37,16 @@ if has_profile kde; then
     check "first-login script on PATH for Plasma" "bash -c 'source ~/.config/plasma-workspace/env/jarch.sh && command -v jarch-kde-firstrun' >/dev/null"
     check "look-and-feel package exists" "[[ -d /usr/share/plasma/look-and-feel/org.kde.breezedark.desktop ]]"
 fi
+# Without a test repo, the installer takes whatever the published [jarch] offers,
+# which lags this checkout's pkgbuilds/ until it merges; it builds the rest
+# locally. Expect exactly that.
+offered="$(pacman -Sl jarch 2>/dev/null | awk '{ print $2, $3 }' || true)"
 while read -r p; do
-    check "$p installed at its pkgbuilds/ version" "[[ \$(pacman -Q $p | cut -d' ' -f2) == \$(pkgbuild_version $JARCH_DIR/pkgbuilds/$p) ]]"
+    if [[ "$expect" != repo ]] && want="$(awk -v p="$p" '$1 == p { print $2 }' <<<"$offered")" && [[ -n "$want" ]]; then
+        check "$p installed at the published [jarch] version" "[[ \$(pacman -Q $p | cut -d' ' -f2) == $want ]]"
+    else
+        check "$p installed at its pkgbuilds/ version" "[[ \$(pacman -Q $p | cut -d' ' -f2) == \$(pkgbuild_version $JARCH_DIR/pkgbuilds/$p) ]]"
+    fi
     if [[ "$expect" == repo ]]; then
         check "$p installed from [jarch]" "pacman -Sl jarch | grep -q '^jarch $p .*\[installed\]'"
     fi
@@ -50,9 +58,13 @@ if [[ "$expect" == repo ]]; then
     fi
 fi
 # outputs are captured first: grep -q closing a pipe early would trip pipefail
-jm_ver="$(sed -n 's/^SCRIPT_VERSION="\(.*\)"/\1/p' "$JARCH_DIR/tools/jarch-manager/arch-manager.sh")"
-check "jarch-manager runs as a user" "[[ \$(command -v jarch-manager) == /usr/bin/jarch-manager && \$(jarch-manager version) == *v$jm_ver ]]"
-check "jarch-manager ships its config" "[[ \$(pacman -Qlq jarch-manager) == */etc/jarch-manager.conf* ]]"
+check "jarch-manager runs as a user" "[[ \$(command -v jarch-manager) == /usr/bin/jarch-manager && \$(jarch-manager version) == *v[0-9]* ]]"
+if [[ "$expect" == repo ]]; then
+    # built from this checkout, so it's this checkout's jarch-manager
+    jm_ver="$(sed -n 's/^SCRIPT_VERSION="\(.*\)"/\1/p' "$JARCH_DIR/tools/jarch-manager/arch-manager.sh")"
+    check "jarch-manager is this checkout's version" "[[ \$(jarch-manager version) == *v$jm_ver ]]"
+    check "jarch-manager ships its config" "[[ \$(pacman -Qlq jarch-manager) == */etc/jarch-manager.conf* ]]"
+fi
 check "jarch-install launcher finds the checkout" "[[ \$(command -v jarch-install) == /usr/bin/jarch-install && \$(jarch-install --list) == *50-tools* ]]"
 # (the archlinux image's NoExtract skips docs on disk, so ask the package)
 check "jarch-manager ships its docs" "[[ \$(pacman -Qlq jarch-manager) == */usr/share/doc/jarch-manager/README.md* ]]"
