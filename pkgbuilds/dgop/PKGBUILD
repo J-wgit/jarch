@@ -8,10 +8,14 @@ arch=(x86_64 aarch64 armv7h)
 url="https://github.com/AvengeMedia/$pkgname"
 license=(MIT)
 depends=(glibc)
-makedepends=(go)
-_archive="$pkgname-$pkgver"
-source=("$url/archive/v$pkgver/$_archive.tar.gz")
-sha256sums=('da0132f302b7854511d618753e881ccdb6e342a01a57ad007046841720c532ee')
+makedepends=(go git)
+# jarch: GitHub's tag tarball no longer matches the AUR's checksum (the
+# same happened to every tarball source in [jarch]), so build from git at
+# the commit the v$pkgver tag points to
+_commit=0ba2c76d797243a49968b25644ea0f4c7bcc693a
+_archive="$pkgname"
+source=("git+$url.git#commit=$_commit")
+sha256sums=('SKIP')
 
 prepare() {
 	cd "$_archive"
