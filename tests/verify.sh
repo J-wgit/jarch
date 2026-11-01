@@ -50,7 +50,9 @@ if [[ "$expect" == repo ]]; then
     fi
 fi
 # outputs are captured first: grep -q closing a pipe early would trip pipefail
-check "jarch-manager runs as a user" "[[ \$(command -v jarch-manager) == /usr/bin/jarch-manager && \$(jarch-manager version) == *v1.0.0* ]]"
+jm_ver="$(sed -n 's/^SCRIPT_VERSION="\(.*\)"/\1/p' "$JARCH_DIR/tools/jarch-manager/arch-manager.sh")"
+check "jarch-manager runs as a user" "[[ \$(command -v jarch-manager) == /usr/bin/jarch-manager && \$(jarch-manager version) == *v$jm_ver ]]"
+check "jarch-manager ships its config" "[[ \$(pacman -Qlq jarch-manager) == */etc/jarch-manager.conf* ]]"
 check "jarch-install launcher finds the checkout" "[[ \$(command -v jarch-install) == /usr/bin/jarch-install && \$(jarch-install --list) == *50-tools* ]]"
 # (the archlinux image's NoExtract skips docs on disk, so ask the package)
 check "jarch-manager ships its docs" "[[ \$(pacman -Qlq jarch-manager) == */usr/share/doc/jarch-manager/README.md* ]]"
