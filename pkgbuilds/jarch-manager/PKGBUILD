@@ -2,7 +2,7 @@
 # The version bumps itself: r<N> counts the commits that touched the paths in
 # _paths, so every merged change to the tool publishes a new build.
 pkgname=jarch-manager
-_basever=1.0.0
+_basever=1.1.0
 _jarch="$(realpath "$startdir/../..")"
 _paths=(tools/jarch-manager pkgbuilds/jarch-manager)
 pkgver=$_basever.r$(git -C "$_jarch" rev-list --count HEAD -- "${_paths[@]}" 2>/dev/null || echo 0)
@@ -12,6 +12,7 @@ arch=(any)
 url="https://github.com/J-wgit/jarch"
 license=(unknown)
 depends=(bash pacman systemd coreutils sudo)
+backup=(etc/jarch-manager.conf)
 optdepends=(
     'pacman-contrib: paccache cache cleanup and checkupdates'
     'paru: AUR updates'
@@ -21,6 +22,7 @@ optdepends=(
 package() {
     local src="$_jarch/tools/jarch-manager"
     install -Dm755 "$src/arch-manager.sh" "$pkgdir/usr/bin/jarch-manager"
+    install -Dm644 "$src/jarch-manager.conf" "$pkgdir/etc/jarch-manager.conf"
     install -Dm644 -t "$pkgdir/usr/share/doc/jarch-manager" \
         "$src"/{README,INSTALL,QUICK_REFERENCE,AUTOMATION_EXAMPLES}.md
 }

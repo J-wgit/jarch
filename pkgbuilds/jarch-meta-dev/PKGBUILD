@@ -1,0 +1,5 @@
+# Meta-package for the profile named in _profile: depends on everything its
+# pacman and jarch lists name. The shared body is pkgbuilds/jarch-meta.sh.
+_profile=dev
+# shellcheck source=../jarch-meta.sh
+. "$(realpath "$startdir/..")/jarch-meta.sh"

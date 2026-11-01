@@ -1,4 +1,4 @@
-# Arch Linux System Manager
+# Jarch Manager
 
 A comprehensive bash script for managing and maintaining Arch Linux systems with an intuitive menu-driven interface and powerful command-line tools.
 
@@ -59,34 +59,29 @@ A comprehensive bash script for managing and maintaining Arch Linux systems with
 
 ## Installation
 
-### Quick Install
+On Jarch it's already installed: the installer puts it in every profile, from
+the `[jarch]` pacman repo, and `pacman -Syu` keeps it current.
+
+On any other Arch system, add `[jarch]` to `/etc/pacman.conf` and install it:
 
 ```bash
-# Download the script
-curl -O https://raw.githubusercontent.com/yourusername/arch-manager/main/arch-manager.sh
-
-# Make it executable
-chmod +x arch-manager.sh
-
-# Move to system path (optional)
-sudo mv arch-manager.sh /usr/local/bin/arch-manager
+sudo tee -a /etc/pacman.conf <<'CONF'
+[jarch]
+SigLevel = Optional TrustAll
+Server = https://github.com/J-wgit/jarch/releases/download/repo-$arch
+CONF
+sudo pacman -Sy jarch-manager
 ```
 
-### Manual Install
-
-1. Clone or download the script
-2. Make it executable: `chmod +x arch-manager.sh`
-3. Run it: `./arch-manager.sh`
-
-### System-Wide Installation
+Or run it straight from a checkout of the Jarch repo, without installing:
 
 ```bash
-# Install to /usr/local/bin for system-wide access
-sudo install -m 755 arch-manager.sh /usr/local/bin/arch-manager
-
-# Now you can run it from anywhere
-arch-manager
+git clone https://github.com/J-wgit/jarch ~/.jarch
+~/.jarch/tools/jarch-manager/arch-manager.sh
 ```
+
+Run it as yourself, not with `sudo`: it asks for your password (through
+`sudo`) only for the steps that change the system.
 
 ## Usage
 
@@ -95,9 +90,7 @@ arch-manager
 Simply run the script without arguments to launch the interactive menu:
 
 ```bash
-./arch-manager.sh
-# or if installed system-wide:
-arch-manager
+jarch-manager
 ```
 
 Navigate through the menu using numbers and follow the prompts.
@@ -108,37 +101,37 @@ Run specific commands directly:
 
 ```bash
 # Update system
-arch-manager update
+jarch-manager update
 
 # Install a package
-arch-manager install firefox
+jarch-manager install firefox
 
 # Remove a package
-arch-manager remove chromium
+jarch-manager remove chromium
 
 # Search for packages
-arch-manager search nvidia
+jarch-manager search nvidia
 
 # Show system information
-arch-manager sysinfo
+jarch-manager sysinfo
 
 # Clean package cache
-arch-manager clean-cache
+jarch-manager clean-cache
 
 # Generate system report
-arch-manager report
+jarch-manager report
 
 # Backup package list
-arch-manager backup-packages
+jarch-manager backup-packages
 
 # Check for updates
-arch-manager check-updates
+jarch-manager check-updates
 
 # Analyze boot performance
-arch-manager boot-analysis
+jarch-manager boot-analysis
 
 # List installed kernels
-arch-manager list-kernels
+jarch-manager list-kernels
 ```
 
 ## Command Reference
@@ -147,54 +140,54 @@ arch-manager list-kernels
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `update` | Update all system packages | `arch-manager update` |
-| `install <pkg>` | Install a package | `arch-manager install vim` |
-| `remove <pkg>` | Remove a package and dependencies | `arch-manager remove firefox` |
-| `search <term>` | Search for packages | `arch-manager search browser` |
-| `info <pkg>` | Show package details | `arch-manager info linux` |
-| `orphans` | List and remove orphaned packages | `arch-manager orphans` |
-| `explicit` | List explicitly installed packages | `arch-manager explicit` |
+| `update` | Update all system packages | `jarch-manager update` |
+| `install <pkg>` | Install a package | `jarch-manager install vim` |
+| `remove <pkg>` | Remove a package and dependencies | `jarch-manager remove firefox` |
+| `search <term>` | Search for packages | `jarch-manager search browser` |
+| `info <pkg>` | Show package details | `jarch-manager info linux` |
+| `orphans` | List and remove orphaned packages | `jarch-manager orphans` |
+| `explicit` | List explicitly installed packages | `jarch-manager explicit` |
 
 ### System Maintenance Commands
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `clean-cache` | Clean pacman package cache | `arch-manager clean-cache` |
-| `clean-logs` | Clean systemd journal logs | `arch-manager clean-logs` |
-| `check-failed` | Check for failed services | `arch-manager check-failed` |
-| `check-fs` | Check filesystem health | `arch-manager check-fs` |
-| `clean-temp` | Clean temporary files | `arch-manager clean-temp` |
+| `clean-cache` | Clean pacman package cache | `jarch-manager clean-cache` |
+| `clean-logs` | Clean systemd journal logs | `jarch-manager clean-logs` |
+| `check-failed` | Check for failed services | `jarch-manager check-failed` |
+| `check-fs` | Check filesystem health | `jarch-manager check-fs` |
+| `clean-temp` | Clean temporary files | `jarch-manager clean-temp` |
 
 ### Monitoring Commands
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `sysinfo` | Display system information | `arch-manager sysinfo` |
-| `boot-analysis` | Analyze boot performance | `arch-manager boot-analysis` |
-| `resources` | Show CPU, memory, disk usage | `arch-manager resources` |
-| `network` | Show network configuration | `arch-manager network` |
+| `sysinfo` | Display system information | `jarch-manager sysinfo` |
+| `boot-analysis` | Analyze boot performance | `jarch-manager boot-analysis` |
+| `resources` | Show CPU, memory, disk usage | `jarch-manager resources` |
+| `network` | Show network configuration | `jarch-manager network` |
 
 ### Backup Commands
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `backup-packages` | Backup installed package list | `arch-manager backup-packages` |
-| `backup-config` | Backup system config files | `arch-manager backup-config` |
-| `restore-packages` | Restore from package backup | `arch-manager restore-packages` |
+| `backup-packages` | Backup installed package list | `jarch-manager backup-packages` |
+| `backup-config` | Backup system config files | `jarch-manager backup-config` |
+| `restore-packages` | Restore from package backup | `jarch-manager restore-packages` |
 
 ### Kernel Commands
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `list-kernels` | List installed kernels | `arch-manager list-kernels` |
-| `regen-initramfs` | Regenerate initramfs images | `arch-manager regen-initramfs` |
+| `list-kernels` | List installed kernels | `jarch-manager list-kernels` |
+| `regen-initramfs` | Regenerate initramfs images | `jarch-manager regen-initramfs` |
 
 ### Diagnostic Commands
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `report` | Generate full system diagnostic report | `arch-manager report` |
-| `check-updates` | Check for available updates | `arch-manager check-updates` |
+| `report` | Generate full system diagnostic report | `jarch-manager report` |
+| `check-updates` | Check for available updates | `jarch-manager check-updates` |
 
 ## Features in Detail
 
@@ -272,15 +265,27 @@ sudo pacman -S sysstat lsof htop
 
 ## Configuration
 
-The script creates configuration directories on first run:
-- `/var/log/arch-manager/` - Log files (requires sudo)
-- `~/.config/arch-manager/` - User configuration
-- `/var/backups/arch-manager/` - Backup storage
+Settings are read from these files, later ones winning (`jarch-manager config`
+shows what's in use):
+
+1. `/etc/jarch-manager.conf` (installed with commented defaults)
+2. `~/.config/arch-manager/config` (the old name, still read)
+3. `~/.config/jarch-manager/config`
+
+| Setting | Default | What it does |
+|---|---|---|
+| `BACKUP_DIR` | `/var/backups/arch-manager` | Where package lists and config backups go |
+| `REPORT_DIR` | your home | Where system reports and boot charts go |
+| `CACHE_KEEP` | `3` | Package versions kept by cache cleanup |
+| `AUR_HELPER` | auto (paru, then yay) | AUR helper used for AUR update checks |
+
+Each file is bash: `KEY=value` lines. Nothing is created until a command needs
+it: the backup directory appears on the first backup.
 
 ## Safety Features
 
 - **Confirmation prompts** for destructive operations
-- **Root privilege checks** for system modifications
+- **Least privilege**: runs as you, and uses `sudo` only for the steps that change the system
 - **Dry-run information** before major changes
 - **Backup recommendations** before critical operations
 - **Error handling** with clear messages
@@ -292,58 +297,58 @@ The script creates configuration directories on first run:
 Create a weekly maintenance routine:
 ```bash
 # Check for updates
-arch-manager check-updates
+jarch-manager check-updates
 
 # Update system
-sudo arch-manager update
+jarch-manager update
 
 # Clean orphaned packages
-sudo arch-manager orphans
+jarch-manager orphans
 
 # Clean old logs (monthly)
-sudo arch-manager clean-logs
+jarch-manager clean-logs
 
 # Backup package list (before major changes)
-arch-manager backup-packages
+jarch-manager backup-packages
 ```
 
 ### Before System Updates
 
 ```bash
 # 1. Backup package list
-arch-manager backup-packages
+jarch-manager backup-packages
 
 # 2. Backup configurations
-sudo arch-manager backup-config
+jarch-manager backup-config
 
 # 3. Check for failed services
-arch-manager check-failed
+jarch-manager check-failed
 
 # 4. Update system
-sudo arch-manager update
+jarch-manager update
 ```
 
 ### After Installing New Software
 
 ```bash
 # Check for orphaned packages
-sudo arch-manager orphans
+jarch-manager orphans
 
 # Verify no services failed
-arch-manager check-failed
+jarch-manager check-failed
 ```
 
 ### Performance Optimization
 
 ```bash
 # Analyze boot time
-arch-manager boot-analysis
+jarch-manager boot-analysis
 
 # Check resource usage
-arch-manager resources
+jarch-manager resources
 
 # Review enabled services
-arch-manager menu  # Then option 14
+jarch-manager menu  # Then option 14
 ```
 
 ## Troubleshooting
@@ -351,8 +356,8 @@ arch-manager menu  # Then option 14
 ### Permission Denied Errors
 Some operations require root privileges. Use `sudo`:
 ```bash
-sudo arch-manager update
-sudo arch-manager clean-cache
+jarch-manager update
+jarch-manager clean-cache
 ```
 
 ### Cache Cleaning Fails
@@ -378,11 +383,11 @@ Create automated maintenance tasks:
 crontab -e
 
 # Add weekly cleanup (Sundays at 2 AM)
-0 2 * * 0 /usr/local/bin/arch-manager clean-cache
-0 2 * * 0 /usr/local/bin/arch-manager clean-logs
+0 2 * * 0 /usr/bin/jarch-manager clean-cache
+0 2 * * 0 /usr/bin/jarch-manager clean-logs
 
 # Add monthly package list backup
-0 3 1 * * /usr/local/bin/arch-manager backup-packages
+0 3 1 * * /usr/bin/jarch-manager backup-packages
 ```
 
 ### Integration with System Services
@@ -409,8 +414,8 @@ Description=Arch Linux Maintenance Tasks
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/bin/arch-manager clean-cache
-ExecStart=/usr/local/bin/arch-manager orphans
+ExecStart=/usr/bin/jarch-manager clean-cache
+ExecStart=/usr/bin/jarch-manager orphans
 ```
 
 Enable the timer:

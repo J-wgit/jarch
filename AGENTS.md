@@ -67,3 +67,4 @@ The full protocol is in [yard/docs/protocol.md](https://github.com/J-wgit/yard/b
 ## Decisions
 
 - [ADR-0001: Record architecture decisions](docs/adr/0001-record-architecture-decisions.md) (accepted)
+- [ADR-0002: Each profile is also a meta-package in [jarch]](docs/adr/0002-profile-meta-packages.md) (proposed)

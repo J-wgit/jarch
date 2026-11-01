@@ -19,6 +19,35 @@ updates arrive with a normal `pacman -Syu`.
 Profiles choose which ones get installed, in `profiles/<name>/jarch`
 (`base` gets `jarch-manager` and `jarch-install`, `dev` adds `jarch-pkg`).
 
+## Meta-packages: each profile as a package
+
+Every profile has a `jarch-meta-<profile>` package: an empty package that
+depends on everything in `profiles/<profile>/pacman` and
+`profiles/<profile>/jarch` (and on `jarch-meta-base`). Each profile's `jarch`
+list installs its own, so after `jarch-install` the system tracks the profiles
+through pacman: add a package to a list, merge, and CI publishes a new
+meta-package version that the next `pacman -Syu` pulls the new package in with.
+
+The lists stay the source of truth; the PKGBUILDs are three lines that source
+the shared `pkgbuilds/jarch-meta.sh`. Its version counts the commits touching
+the profile's lists. Removing a package from a list doesn't uninstall it: it
+stays installed, just no longer required. AUR packages aren't dependencies
+(pacman can't fetch them); serve one from `[jarch]` and put it in the jarch list
+instead. Groups in a list are expanded to their members when the package is
+built.
+
+For a new profile:
+
+```bash
+mkdir pkgbuilds/jarch-meta-<profile>
+sed 's/^_profile=.*/_profile=<profile>/' pkgbuilds/jarch-meta-base/PKGBUILD \
+    > pkgbuilds/jarch-meta-<profile>/PKGBUILD
+echo jarch-meta-<profile> >> profiles/<profile>/jarch
+```
+
+`tests/meta-packages.sh` checks every profile has one and that its dependencies
+match its lists.
+
 ## Adding a Jarch tool
 
 ```bash
