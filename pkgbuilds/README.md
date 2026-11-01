@@ -10,6 +10,8 @@ updates arrive with a normal `pacman -Syu`.
 | `jarch-manager` | The system manager (`tools/jarch-manager`) |
 | `jarch-install` | `/usr/bin/jarch-install`: runs the installer from your checkout, cloning it if needed |
 | `jarch-pkg` | The tool for this directory: build, fork and update [jarch] packages |
+| `etcher-bin` | AUR: balenaEtcher from upstream's release (`workstation`) |
+| `bombadillo` | AUR: Gopher/Gemini terminal client (`workstation`) |
 
 Profiles choose which ones get installed, in `profiles/<name>/jarch`
 (`base` gets `jarch-manager` and `jarch-install`, `dev` adds `jarch-pkg`).
