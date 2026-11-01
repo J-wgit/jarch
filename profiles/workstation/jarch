@@ -1,0 +1,12 @@
+# AUR packages served prebuilt from the [jarch] repo (pkgbuilds/<name>).
+# If [jarch] is unreachable they are built on this machine from pkgbuilds/.
+etcher-bin            # balenaEtcher from upstream's release (the AUR's balena-etcher
+                      # needs electron37, a from-source Chromium build)
+bombadillo            # Gopher/Gemini terminal client
+dgop                  # system monitor DMS uses; before dms-shell, so a local
+                      # build has it installed first
+dms-shell             # DankMaterialShell for niri: bar, launcher, notifications, lock
+                      # (builds dms-shell and dms-shell-niri)
+tlrc                  # tldr client
+
+jarch-meta-workstation  # this profile as a package (pkgbuilds/jarch-meta.sh)

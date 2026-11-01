@@ -1,0 +1,6 @@
+# This package is a fork, served from [jarch] in place of upstream's build.
+# Written by jarch-pkg import; jarch-pkg update reads and refreshes it.
+origin=aur
+url=https://aur.archlinux.org/bombadillo.git
+commit=4b256a2677d5e48d14fe5d6c094ed29bde1271b6
+version=2.4.0-1

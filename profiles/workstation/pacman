@@ -1,0 +1,163 @@
+# Workstation: Jay's machine (packages-20261031). niri with DankMaterialShell
+# as the everyday session, a trimmed Plasma alongside it, Plasma Login Manager,
+# and a heavy dev/virtualisation toolchain. Packages already in base aren't
+# repeated. Use on its own with base (plus nvidia on NVIDIA machines); don't
+# combine with desktop or kde, which bring SDDM.
+
+# ── Boot, kernel, disks (a vanilla Arch install usually has these already) ──
+linux
+linux-headers
+linux-firmware
+intel-ucode
+sof-firmware
+grub
+efibootmgr
+btrfs-progs
+grub-btrfs            # boot into snapper snapshots from the GRUB menu
+snapper
+btrfs-assistant
+zram-generator        # compressed swap in RAM; set up in kconfig
+arch-install-scripts
+wpa_supplicant
+
+# ── niri session ──
+niri
+xwayland-satellite    # X11 apps under niri
+xdg-desktop-portal-gnome  # niri's recommended portal (screencast, file dialogs)
+quickshell            # what DankMaterialShell (from [jarch]) runs on
+matugen               # wallpaper colours for DMS
+cava                  # audio visualiser in DMS
+fuzzel
+mako
+swaybg
+swaylock
+waybar
+network-manager-applet
+
+# ── Plasma (a trimmed set, alongside niri) ──
+plasma-desktop
+plasma-workspace
+plasma-login-manager  # login screen for both sessions
+plasma-pa
+plasma-systemmonitor
+kscreen
+discover
+spectacle
+konsole
+yakuake               # drop-down terminal
+dolphin
+dolphin-plugins
+ark
+kate
+kleopatra
+konqueror
+partitionmanager
+phonon-qt6-vlc        # picked explicitly so pacman doesn't ask
+qt6-multimedia-ffmpeg
+
+# ── Audio ──
+pipewire
+pipewire-alsa
+pipewire-jack
+pipewire-pulse
+wireplumber
+gst-plugin-pipewire
+libpulse
+
+# ── X11 fallback ──
+xorg-server
+xorg-xinit
+xdg-utils
+
+# ── Terminals and shells ──
+alacritty
+ghostty
+kitty
+fish
+zsh
+nushell
+zellij
+
+# ── CLI tools ──
+bat
+eza
+fd
+fzf
+zoxide
+yazi
+superfile
+lazygit
+lazyjj
+glow
+navi
+thefuck
+tree
+micro
+nano
+helix
+newsboat
+amfora                # Gemini browser
+arch-wiki-docs
+wikiman               # offline search of man pages and the Arch Wiki
+
+# ── Version control ──
+github-cli
+jujutsu
+mercurial
+subversion
+cvs
+fossil
+breezy
+
+# ── Languages and build tools ──
+python-pip
+python-pipx
+uv
+ruff
+ty
+ruby
+ruby-irb
+php
+julia
+nim
+zig
+zls
+bazel
+just
+
+# ── Editors and AI tools ──
+zed
+obsidian
+openai-codex
+opencode
+ollama
+
+# ── Containers and VMs ──
+docker
+podman
+distrobox
+lxc
+libvirt
+virt-manager
+gnome-boxes
+flatpak
+nix
+
+# ── Self-hosted services (installed, not enabled) ──
+forgejo
+gitea
+copyparty
+
+# ── Apps ──
+firefox
+chromium
+falkon
+qutebrowser
+thunderbird
+discord
+spotify-launcher
+qbittorrent
+putty
+
+# ── Fonts ──
+ttf-firacode-nerd

@@ -1,0 +1,49 @@
+# Maintainer: Lena Pastwa <aur@lnps.me>
+pkgname=tlrc
+pkgver=1.13.1
+pkgrel=1.1
+pkgdesc="Official tldr client written in Rust"
+arch=('x86_64')
+url="https://github.com/tldr-pages/$pkgname"
+license=('MIT')
+depends=('glibc' 'libgcc')
+makedepends=('cargo' 'git')
+provides=('tldr')
+conflicts=('tldr')
+# jarch: GitHub's tag tarball no longer matches the AUR's checksum (the
+# same happened to every tarball source in [jarch]), so build from git at
+# the commit the v$pkgver tag points to
+_commit=a9f3dbfab902fd0740ab0d3f7ab6a3bac5e8dfcb
+source=("git+$url.git#commit=$_commit")
+b2sums=('SKIP')
+# This is needed for `ring` to compile. See https://github.com/briansmith/ring/issues/1444
+options=('!lto')
+
+prepare() {
+    cd "$pkgname"
+    export RUSTUP_TOOLCHAIN=stable
+    cargo fetch --locked --target host-tuple
+}
+
+build() {
+    cd "$pkgname"
+    export RUSTUP_TOOLCHAIN=stable
+    export CARGO_TARGET_DIR=target
+    cargo build --frozen --release
+}
+
+check() {
+    cd "$pkgname"
+    export RUSTUP_TOOLCHAIN=stable
+    cargo test --frozen
+}
+
+package() {
+    cd "$pkgname"
+    install -Dm755 target/release/tldr -t "$pkgdir/usr/bin"
+    install -Dm644 tldr.1 -t "$pkgdir/usr/share/man/man1"
+    install -Dm644 completions/tldr.bash "$pkgdir/usr/share/bash-completion/completions/tldr"
+    install -Dm644 completions/_tldr -t "$pkgdir/usr/share/zsh/site-functions"
+    install -Dm644 completions/tldr.fish -t "$pkgdir/usr/share/fish/vendor_completions.d"
+    install -Dm644 LICENSE -t "$pkgdir/usr/share/licenses/$pkgname"
+}

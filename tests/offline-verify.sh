@@ -30,6 +30,14 @@ check "second run doesn't rebuild paru" "! grep -q 'makepkg' /stub/log"
 check "second run doesn't re-enable services" "! grep -q 'systemctl enable' /stub/log"
 check "second run doesn't change shell again" "! grep -q '^chsh' /stub/log"
 check "no new backups on second run" "[[ \$(ls ~/.local/state/jarch/backup | wc -l) == 1 ]]"
+if [[ -n "$(profile_items multilib)" ]]; then
+    check "multilib enabled for the profiles' multilib packages" "[[ \$(grep -c '^\\[multilib\\]' /etc/pacman.conf) == 1 ]]"
+    while read -r p; do
+        check "$p requested from multilib" "grep -q '^pacman -Syu --needed --noconfirm.* $p\\b' /stub/log.first"
+    done < <(profile_items multilib)
+else
+    check "multilib left off" "! grep -q '^\\[multilib\\]' /etc/pacman.conf"
+fi
 while read -r s; do check "$s enabled" "grep -qx 'enabled $s' /stub/db"; done < <(profile_items services)
 if has_profile desktop; then check "hypr local.conf created" "[[ -f ~/.config/hypr/local.conf ]]"; fi
 while read -r line; do

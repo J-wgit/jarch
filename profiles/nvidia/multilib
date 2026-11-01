@@ -1,0 +1,2 @@
+# 32-bit driver for Steam and Wine, so pacman doesn't pick a Mesa one
+lib32-nvidia-utils

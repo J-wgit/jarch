@@ -65,6 +65,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          # full history: Jarch's tools version by commit count, and verify.sh
+          # compares that with what the published [jarch] serves
+          fetch-depth: 0
       - name: Real install of the KDE profile in an Arch container (tools from the published [jarch], or built locally)
         run: tests/container-install.sh kde
 
@@ -73,6 +77,10 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Stubbed install of all profiles (dry run, install, idempotent re-run)
-        run: tests/offline-install.sh base,desktop,dev,kde repo
+        run: |
+          tests/offline-install.sh base,desktop,dev,kde repo
+          tests/offline-install.sh base,workstation,nvidia repo
       - name: Same, with [jarch] unreachable (Jarch's packages built locally)
-        run: tests/offline-install.sh base,desktop,dev,kde norepo
+        run: |
+          tests/offline-install.sh base,desktop,dev,kde norepo
+          tests/offline-install.sh base,workstation,nvidia norepo

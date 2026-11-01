@@ -1,0 +1,6 @@
+# This package is a fork, served from [jarch] in place of upstream's build.
+# Written by jarch-pkg import; jarch-pkg update reads and refreshes it.
+origin=aur
+url=https://aur.archlinux.org/dms-shell.git
+commit=d90e31fa5a9faeb70e46b019433deeff7de5bd1f
+version=1.4.4-6

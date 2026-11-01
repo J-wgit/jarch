@@ -1,0 +1,6 @@
+# This package is a fork, served from [jarch] in place of upstream's build.
+# Written by jarch-pkg import; jarch-pkg update reads and refreshes it.
+origin=aur
+url=https://aur.archlinux.org/dgop.git
+commit=ee6d5556d51334379c67862b8b644b0d406cc87c
+version=0.1.7-1

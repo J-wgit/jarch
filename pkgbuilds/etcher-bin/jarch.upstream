@@ -1,0 +1,6 @@
+# This package is a fork, served from [jarch] in place of upstream's build.
+# Written by jarch-pkg import; jarch-pkg update reads and refreshes it.
+origin=aur
+url=https://aur.archlinux.org/etcher-bin.git
+commit=7f63affbc189881e75803b92abe0e7d78a53de24
+version=2.1.7-1

@@ -1,0 +1,6 @@
+# This package is a fork, served from [jarch] in place of upstream's build.
+# Written by jarch-pkg import; jarch-pkg update reads and refreshes it.
+origin=aur
+url=https://aur.archlinux.org/tlrc.git
+commit=ab3704f08fc5c3d547b3406276f221a10dd7bdcc
+version=1.13.1-1

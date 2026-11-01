@@ -1,0 +1,7 @@
+# NVIDIA GPU (Turing or newer): open kernel modules, built by DKMS for every
+# installed kernel, plus VA-API video decode and CUDA for ollama.
+dkms
+linux-headers
+nvidia-open-dkms
+libva-nvidia-driver
+ollama-cuda

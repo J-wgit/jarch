@@ -25,7 +25,7 @@ wv binder check                                   # binder
 | --- | --- |
 | `jarch.conf` | settings: AUR helper, pacman tweaks, [jarch] repo, default profiles, login shell |
 | `install/` | `jarch-install` entry point, `lib/common.sh`, `stages/NN-name.sh` run in order |
-| `profiles/<name>/` | pacman, aur, jarch, dotfiles, services, user-services, groups, kconfig lists |
+| `profiles/<name>/` | pacman, multilib, aur, jarch, dotfiles, services, user-services, groups, kconfig lists |
 | `dotfiles/<pkg>/` | stow packages: bash, starship, hypr, waybar, kitty, rofi, dunst, kde |
 | `pkgbuilds/<name>/` | packages served from [jarch]: Jarch's tools and custom builds of upstream packages |
 | `tools/` | jarch-manager, jarch-pkg, the jarch-install launcher |

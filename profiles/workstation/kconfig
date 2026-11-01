@@ -1,0 +1,10 @@
+# Settings applied on every install run (same format as profiles/kde/kconfig).
+# Theming is left for later.
+
+# UK keyboard in Plasma
+kxkbrc | Layout | Use | true
+kxkbrc | Layout | LayoutList | gb
+
+# Compressed swap in RAM: half of RAM, at most 8 GiB
+/etc/systemd/zram-generator.conf | zram0 | zram-size | min(ram / 2, 8192)
+/etc/systemd/zram-generator.conf | zram0 | compression-algorithm | zstd
