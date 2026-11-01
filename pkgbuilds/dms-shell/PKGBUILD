@@ -12,8 +12,10 @@ pkgdesc='A Quickshell-based desktop shell with Material 3 design principles'
 arch=(x86_64 aarch64)
 url="https://github.com/AvengeMedia/$_pkg1"
 license=(MIT)
-depends=(dgop
-         accountsservice
+# jarch: dgop is an AUR package served from [jarch] too. As a runtime-only
+# dependency (set in package_dms-shell) makepkg --syncdeps doesn't need it
+# installed to build, so CI can build both in one run.
+depends=(accountsservice
          quickshell)
 optdepends=('cava: Audio visualizer'
             'cups-pk-helper: Printer Management'
@@ -53,7 +55,7 @@ _completion() {
 
 package_dms-shell() {
 	cd "$_archive"
-	depends+=(dms-shell-compositor)
+	depends+=(dgop dms-shell-compositor)
 	optdepneds+=('dms-shell-hyprland: Hyprland specific dependencies')
 	optdepneds+=('dms-shell-niri: Niri specific dependencies')
 	install -Dm0755 -t "$pkgdir/usr/bin/" core/dms

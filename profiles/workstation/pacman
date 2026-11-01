@@ -25,7 +25,6 @@ niri
 xwayland-satellite    # X11 apps under niri
 xdg-desktop-portal-gnome  # niri's recommended portal (screencast, file dialogs)
 quickshell            # what DankMaterialShell (from [jarch]) runs on
-dgop
 matugen               # wallpaper colours for DMS
 cava                  # audio visualiser in DMS
 fuzzel

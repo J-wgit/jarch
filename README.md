@@ -77,7 +77,7 @@ tests/                  CI tests (see below)
 - **workstation**: Jay's machine. niri with DankMaterialShell, a trimmed Plasma
   alongside it, Plasma Login Manager, btrfs + snapper + grub-btrfs, zram swap,
   Docker/Podman/libvirt/Nix, a broad dev toolchain, Steam (turns on multilib).
-  AUR packages come prebuilt from `[jarch]` (`etcher-bin`, `bombadillo`, `dms-shell`, `tlrc`);
+  AUR packages come prebuilt from `[jarch]` (`etcher-bin`, `bombadillo`, `dms-shell`, `dgop`, `tlrc`);
   `docker-desktop` is built locally by paru, since its licence doesn't allow
   redistribution. Use it instead of `desktop`/`kde` (those bring SDDM). Run
   `sudo snapper -c root create-config /` once for snapshots. No theming yet.

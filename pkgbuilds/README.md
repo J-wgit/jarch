@@ -13,6 +13,7 @@ updates arrive with a normal `pacman -Syu`.
 | `etcher-bin` | AUR: balenaEtcher from upstream's release (`workstation`) |
 | `bombadillo` | AUR: Gopher/Gemini terminal client (`workstation`) |
 | `dms-shell` | AUR: DankMaterialShell, with its niri split only (`workstation`) |
+| `dgop` | AUR: system monitor DankMaterialShell uses (`workstation`) |
 | `tlrc` | AUR: tldr client (`workstation`) |
 
 Profiles choose which ones get installed, in `profiles/<name>/jarch`
