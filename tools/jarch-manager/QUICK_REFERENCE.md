@@ -4,45 +4,45 @@
 
 ```bash
 # Check system status
-arch-manager sysinfo
+jarch-manager sysinfo
 
 # Check for updates
-arch-manager check-updates
+jarch-manager check-updates
 
 # Update system
-sudo arch-manager update
+jarch-manager update
 
 # Check failed services
-arch-manager check-failed
+jarch-manager check-failed
 ```
 
 ## Weekly Maintenance
 
 ```bash
 # Clean orphaned packages
-sudo arch-manager orphans
+jarch-manager orphans
 
 # Clean package cache (keep 3 versions)
-sudo arch-manager clean-cache
+jarch-manager clean-cache
 
 # Check disk space
-arch-manager resources
+jarch-manager resources
 ```
 
 ## Monthly Tasks
 
 ```bash
 # Backup package list
-arch-manager backup-packages
+jarch-manager backup-packages
 
 # Backup configurations
-sudo arch-manager backup-config
+jarch-manager backup-config
 
 # Clean old logs
-sudo arch-manager clean-logs
+jarch-manager clean-logs
 
 # Generate system report
-arch-manager report
+jarch-manager report
 ```
 
 ## Common Workflows
@@ -50,73 +50,73 @@ arch-manager report
 ### Installing New Software
 ```bash
 # Search for package
-arch-manager search <package_name>
+jarch-manager search <package_name>
 
 # View package info
-arch-manager info <package_name>
+jarch-manager info <package_name>
 
 # Install package
-sudo arch-manager install <package_name>
+jarch-manager install <package_name>
 
 # Check for orphans afterwards
-sudo arch-manager orphans
+jarch-manager orphans
 ```
 
 ### Troubleshooting Boot Issues
 ```bash
 # Analyze boot performance
-arch-manager boot-analysis
+jarch-manager boot-analysis
 
 # Check failed services
-arch-manager check-failed
+jarch-manager check-failed
 
 # List installed kernels
-arch-manager list-kernels
+jarch-manager list-kernels
 
 # Regenerate initramfs if needed
-sudo arch-manager regen-initramfs
+jarch-manager regen-initramfs
 ```
 
 ### Before Major Updates
 ```bash
 # 1. Backup current state
-arch-manager backup-packages
-sudo arch-manager backup-config
+jarch-manager backup-packages
+jarch-manager backup-config
 
 # 2. Check system health
-arch-manager check-failed
-arch-manager check-fs
+jarch-manager check-failed
+jarch-manager check-fs
 
 # 3. Clean system
-sudo arch-manager orphans
-sudo arch-manager clean-cache
+jarch-manager orphans
+jarch-manager clean-cache
 
 # 4. Update
-sudo arch-manager update
+jarch-manager update
 ```
 
 ### System Cleanup
 ```bash
 # Remove orphaned packages
-sudo arch-manager orphans
+jarch-manager orphans
 
 # Clean package cache
-sudo arch-manager clean-cache
+jarch-manager clean-cache
 
 # Clean temporary files
-sudo arch-manager clean-temp
+jarch-manager clean-temp
 
 # Clean old logs
-sudo arch-manager clean-logs
+jarch-manager clean-logs
 ```
 
 ### Service Management
 ```bash
 # List all services
-arch-manager menu  # Option 14
+jarch-manager menu  # Option 14
 
 # Check failed services
-arch-manager check-failed
+jarch-manager check-failed
 
 # Manage specific service
 sudo systemctl status <service>
@@ -131,19 +131,19 @@ sudo systemctl disable <service>
 
 ```bash
 # System overview
-arch-manager sysinfo
+jarch-manager sysinfo
 
 # Resource usage
-arch-manager resources
+jarch-manager resources
 
 # Network status
-arch-manager network
+jarch-manager network
 
 # Boot analysis
-arch-manager boot-analysis
+jarch-manager boot-analysis
 
 # Full diagnostic report
-arch-manager report
+jarch-manager report
 ```
 
 ## Emergency Recovery
@@ -180,7 +180,7 @@ sudo pacman -S --needed - < /var/backups/arch-manager/packages-*.txt
 ### Service Failures
 ```bash
 # Check what failed
-arch-manager check-failed
+jarch-manager check-failed
 
 # View service logs
 journalctl -xeu <service_name>
@@ -199,11 +199,9 @@ sudo systemctl restart <service_name>
 ## File Locations
 
 ```
-Configuration:
-~/.config/arch-manager/config
-
-Logs:
-/var/log/arch-manager/
+Configuration (later wins; see `jarch-manager config`):
+/etc/jarch-manager.conf
+~/.config/jarch-manager/config
 
 Backups:
 /var/backups/arch-manager/
@@ -218,9 +216,9 @@ Generated Reports:
 
 ## Quick Tips
 
-💡 **Tip**: Run `arch-manager menu` for interactive mode
+💡 **Tip**: Run `jarch-manager menu` for interactive mode
 💡 **Tip**: Use tab completion for command names
-💡 **Tip**: Add `arch-manager` to your PATH for easier access
+💡 **Tip**: Add `jarch-manager` to your PATH for easier access
 💡 **Tip**: Create aliases for frequently used commands
 💡 **Tip**: Schedule regular backups with cron
 💡 **Tip**: Review reports before sharing (may contain sensitive data)
@@ -231,14 +229,14 @@ Add to your `~/.bashrc`:
 
 ```bash
 # Arch Manager shortcuts
-alias am='arch-manager'
-alias amu='sudo arch-manager update'
-alias ami='sudo arch-manager install'
-alias amr='sudo arch-manager remove'
-alias ams='arch-manager search'
-alias amc='sudo arch-manager clean-cache'
-alias amb='arch-manager backup-packages'
-alias amsi='arch-manager sysinfo'
+alias am='jarch-manager'
+alias amu='jarch-manager update'
+alias ami='jarch-manager install'
+alias amr='jarch-manager remove'
+alias ams='jarch-manager search'
+alias amc='jarch-manager clean-cache'
+alias amb='jarch-manager backup-packages'
+alias amsi='jarch-manager sysinfo'
 ```
 
 ## Common Error Solutions
@@ -251,7 +249,7 @@ sudo pacman -S pacman-contrib
 ### "Permission denied"
 ```bash
 # Add sudo for system operations
-sudo arch-manager <command>
+jarch-manager <command>
 ```
 
 ### "Journal is not persistent"
@@ -310,14 +308,14 @@ n/p       = Next/Previous in search
 
 ```bash
 # Show help
-arch-manager help
+jarch-manager help
 
 # Show version
-arch-manager version
+jarch-manager version
 
 # Interactive menu
-arch-manager menu
-arch-manager  # (same as menu)
+jarch-manager menu
+jarch-manager  # (same as menu)
 ```
 
 ---

@@ -6,7 +6,7 @@
 ```ini
 [Unit]
 Description=Weekly Arch Linux System Maintenance
-Documentation=man:arch-manager(1)
+Documentation=man:jarch-manager(1)
 
 [Timer]
 # Run every Sunday at 2:00 AM
@@ -32,11 +32,11 @@ Type=oneshot
 # Run as root
 User=root
 # Clean package cache (keep 3 versions)
-ExecStart=/usr/local/bin/arch-manager clean-cache
+ExecStart=/usr/bin/jarch-manager clean-cache
 # Remove orphaned packages
-ExecStart=/usr/local/bin/arch-manager orphans
+ExecStart=/usr/bin/jarch-manager orphans
 # Clean old temporary files
-ExecStart=/usr/local/bin/arch-manager clean-temp
+ExecStart=/usr/bin/jarch-manager clean-temp
 # Send notification on completion
 ExecStartPost=/usr/bin/systemd-cat -t arch-maintenance echo "Maintenance completed"
 
@@ -75,7 +75,7 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 User=root
-ExecStart=/usr/local/bin/arch-manager check-updates
+ExecStart=/usr/bin/jarch-manager check-updates
 StandardOutput=journal
 StandardError=journal
 ```
@@ -105,11 +105,11 @@ Description=Backup Arch Linux Package Lists and Configurations
 Type=oneshot
 User=root
 # Backup package lists
-ExecStart=/usr/local/bin/arch-manager backup-packages
+ExecStart=/usr/bin/jarch-manager backup-packages
 # Backup configuration files
-ExecStart=/usr/local/bin/arch-manager backup-config
+ExecStart=/usr/bin/jarch-manager backup-config
 # Generate system report
-ExecStart=/usr/local/bin/arch-manager report
+ExecStart=/usr/bin/jarch-manager report
 
 # Cleanup old backups (keep last 6 months)
 ExecStartPost=/usr/bin/find /var/backups/arch-manager -type f -mtime +180 -delete
@@ -209,15 +209,15 @@ If you prefer cron over systemd timers:
 ### File: /etc/cron.d/arch-manager
 ```bash
 # Weekly maintenance (Sunday 2 AM)
-0 2 * * 0 root /usr/local/bin/arch-manager clean-cache >/dev/null 2>&1
-0 2 * * 0 root /usr/local/bin/arch-manager orphans >/dev/null 2>&1
+0 2 * * 0 root /usr/bin/jarch-manager clean-cache >/dev/null 2>&1
+0 2 * * 0 root /usr/bin/jarch-manager orphans >/dev/null 2>&1
 
 # Daily update check (9 AM)
-0 9 * * * root /usr/local/bin/arch-manager check-updates | logger -t arch-updatecheck
+0 9 * * * root /usr/bin/jarch-manager check-updates | logger -t arch-updatecheck
 
 # Monthly backup (1st of month, 3 AM)
-0 3 1 * * root /usr/local/bin/arch-manager backup-packages >/dev/null 2>&1
-0 3 1 * * root /usr/local/bin/arch-manager backup-config >/dev/null 2>&1
+0 3 1 * * root /usr/bin/jarch-manager backup-packages >/dev/null 2>&1
+0 3 1 * * root /usr/bin/jarch-manager backup-config >/dev/null 2>&1
 
 # Monthly log cleanup (1st of month, 4 AM)
 0 4 1 * * root /usr/bin/journalctl --vacuum-time=30d >/dev/null 2>&1
@@ -226,7 +226,7 @@ If you prefer cron over systemd timers:
 ### Install Cron Jobs
 ```bash
 # Copy to cron.d directory
-sudo cp arch-manager /etc/cron.d/
+sudo cp jarch-manager /etc/cron.d/
 
 # Verify syntax
 sudo crontab -l
@@ -272,7 +272,7 @@ Before=shutdown.target reboot.target halt.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/bin/arch-manager clean-temp
+ExecStart=/usr/bin/jarch-manager clean-temp
 ExecStart=/usr/bin/sync
 TimeoutStartSec=60
 
@@ -289,7 +289,7 @@ Only run if disk usage is high:
 Type=oneshot
 # Check if /var is over 80% full
 ExecCondition=/bin/bash -c 'df /var | awk "NR==2 {exit ($5+0<80)}"'
-ExecStart=/usr/local/bin/arch-manager clean-cache
+ExecStart=/usr/bin/jarch-manager clean-cache
 ```
 
 ## Monitoring Timer Execution
