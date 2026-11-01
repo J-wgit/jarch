@@ -8,3 +8,5 @@ dgop                  # system monitor DMS uses; before dms-shell, so a local
 dms-shell             # DankMaterialShell for niri: bar, launcher, notifications, lock
                       # (builds dms-shell and dms-shell-niri)
 tlrc                  # tldr client
+
+jarch-meta-workstation  # this profile as a package (pkgbuilds/jarch-meta.sh)
