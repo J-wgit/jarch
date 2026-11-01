@@ -1,39 +1,17 @@
-# Arch Linux System Manager - Installation & Getting Started
+# Jarch Manager - Installation & Getting Started
 
 ## Quick Start Guide
 
-### Installation (3 Steps)
+### Installation
 
-#### Step 1: Download the Script
+On Jarch, `jarch-manager` is already installed from the `[jarch]` pacman repo
+and updated by `pacman -Syu`. Elsewhere, see **Installation** in README.md.
+
 ```bash
-# Make sure you have the arch-manager.sh file
-# If downloaded, make it executable:
-chmod +x arch-manager.sh
-```
-
-#### Step 2: Install System-Wide (Recommended)
-```bash
-# Install to /usr/local/bin for easy access
-sudo install -m 755 arch-manager.sh /usr/local/bin/arch-manager
-
-# Verify installation
-which arch-manager
-arch-manager version
-```
-
-#### Step 3: First Run
-```bash
-# Launch interactive menu
-arch-manager
-
-# Or run a specific command
-arch-manager sysinfo
-```
-
-### Alternative: Run from Current Directory
-```bash
-# If you don't want to install system-wide
-./arch-manager.sh
+which jarch-manager
+jarch-manager version
+jarch-manager            # interactive menu
+jarch-manager sysinfo    # or a single command
 ```
 
 ## First-Time Setup
@@ -41,31 +19,31 @@ arch-manager sysinfo
 ### 1. Check System Health
 ```bash
 # Get an overview of your system
-arch-manager sysinfo
+jarch-manager sysinfo
 
 # Check for any failed services
-arch-manager check-failed
+jarch-manager check-failed
 
 # View disk usage
-arch-manager resources
+jarch-manager resources
 ```
 
 ### 2. Create Your First Backup
 ```bash
 # Backup your package list (safe to run)
-arch-manager backup-packages
+jarch-manager backup-packages
 
 # Optionally backup configs (requires sudo)
-sudo arch-manager backup-config
+jarch-manager backup-config
 ```
 
 ### 3. Clean Up (Optional)
 ```bash
 # Check for orphaned packages
-sudo arch-manager orphans
+jarch-manager orphans
 
 # Clean old package cache
-sudo arch-manager clean-cache
+jarch-manager clean-cache
 ```
 
 ## Usage Examples
@@ -73,7 +51,7 @@ sudo arch-manager clean-cache
 ### Interactive Mode (Recommended for Beginners)
 ```bash
 # Launch the menu
-arch-manager
+jarch-manager
 
 # Navigate using numbers:
 # 1 for system update
@@ -85,22 +63,22 @@ arch-manager
 ### Command Line Mode (For Experienced Users)
 ```bash
 # Update system
-sudo arch-manager update
+jarch-manager update
 
 # Install package
-sudo arch-manager install firefox
+jarch-manager install firefox
 
 # Search packages
-arch-manager search browser
+jarch-manager search browser
 
 # Clean cache
-sudo arch-manager clean-cache
+jarch-manager clean-cache
 
 # System info
-arch-manager sysinfo
+jarch-manager sysinfo
 
 # Generate report
-arch-manager report
+jarch-manager report
 ```
 
 ## Common Tasks
@@ -108,59 +86,59 @@ arch-manager report
 ### Daily Use
 ```bash
 # Morning routine
-arch-manager check-updates     # Check for updates
-arch-manager check-failed      # Check system health
+jarch-manager check-updates     # Check for updates
+jarch-manager check-failed      # Check system health
 ```
 
 ### Weekly Maintenance
 ```bash
 # Update system
-sudo arch-manager update
+jarch-manager update
 
 # Remove orphans
-sudo arch-manager orphans
+jarch-manager orphans
 
 # Clean cache
-sudo arch-manager clean-cache
+jarch-manager clean-cache
 ```
 
 ### Monthly Tasks
 ```bash
 # Backup package list
-arch-manager backup-packages
+jarch-manager backup-packages
 
 # Clean old logs
-sudo arch-manager clean-logs
+jarch-manager clean-logs
 
 # Generate system report
-arch-manager report
+jarch-manager report
 ```
 
 ### Before Installing New Software
 ```bash
 # Search for the package
-arch-manager search <package_name>
+jarch-manager search <package_name>
 
 # Get package info
-arch-manager info <package_name>
+jarch-manager info <package_name>
 
 # Install it
-sudo arch-manager install <package_name>
+jarch-manager install <package_name>
 ```
 
 ### Troubleshooting Boot Problems
 ```bash
 # Analyze boot performance
-arch-manager boot-analysis
+jarch-manager boot-analysis
 
 # Check failed services
-arch-manager check-failed
+jarch-manager check-failed
 
 # List kernels
-arch-manager list-kernels
+jarch-manager list-kernels
 
 # Regenerate initramfs (if needed)
-sudo arch-manager regen-initramfs
+jarch-manager regen-initramfs
 ```
 
 ## Understanding the Menu
@@ -223,70 +201,70 @@ The script encourages regular backups before major changes.
 
 ### User Files (No sudo needed)
 ```
-~/.config/arch-manager/          # Configuration
-~/system-report-*.txt            # Generated reports
-~/boot-analysis-*.svg            # Boot charts
+~/.config/jarch-manager/config   # Your settings (see README.md)
+~/system-report-*.txt            # Generated reports (REPORT_DIR)
+~/boot-analysis-*.svg            # Boot charts (REPORT_DIR)
 ```
 
 ### System Files (Requires sudo)
 ```
-/usr/local/bin/arch-manager      # Installed script
-/var/backups/arch-manager/       # Backup storage
-/var/log/arch-manager/           # Log files
+/usr/bin/jarch-manager           # Installed by the jarch-manager package
+/etc/jarch-manager.conf          # System-wide settings
+/var/backups/arch-manager/       # Backup storage (BACKUP_DIR)
 ```
 
 ## Recommended Workflows
 
 ### New Installation Setup
 ```bash
-# 1. Install the script
-sudo install -m 755 arch-manager.sh /usr/local/bin/arch-manager
+# 1. Install it (already done on Jarch)
+sudo pacman -S jarch-manager
 
 # 2. Update system
-sudo arch-manager update
+jarch-manager update
 
 # 3. Clean up
-sudo arch-manager orphans
-sudo arch-manager clean-cache
+jarch-manager orphans
+jarch-manager clean-cache
 
 # 4. Create baseline backup
-arch-manager backup-packages
-sudo arch-manager backup-config
+jarch-manager backup-packages
+jarch-manager backup-config
 
 # 5. Check system health
-arch-manager sysinfo
-arch-manager check-failed
+jarch-manager sysinfo
+jarch-manager check-failed
 ```
 
 ### Pre-Update Checklist
 ```bash
 # 1. Backup current state
-arch-manager backup-packages
+jarch-manager backup-packages
 
 # 2. Check system health
-arch-manager check-failed
+jarch-manager check-failed
 
 # 3. Update
-sudo arch-manager update
+jarch-manager update
 
 # 4. Verify boot
-arch-manager boot-analysis
+jarch-manager boot-analysis
 ```
 
 ### Weekly Maintenance Routine
 ```bash
 # 1. Check for updates
-arch-manager check-updates
+jarch-manager check-updates
 
 # 2. Update system
-sudo arch-manager update
+jarch-manager update
 
 # 3. Clean orphans
-sudo arch-manager orphans
+jarch-manager orphans
 
 # 4. Check system health
-arch-manager check-failed
-arch-manager resources
+jarch-manager check-failed
+jarch-manager resources
 ```
 
 ## Automation Setup (Optional)
@@ -315,11 +293,11 @@ systemctl list-timers
 sudo crontab -e
 
 # Add weekly maintenance (Sunday 2 AM)
-0 2 * * 0 /usr/local/bin/arch-manager clean-cache
-0 2 * * 0 /usr/local/bin/arch-manager orphans
+0 2 * * 0 /usr/bin/jarch-manager clean-cache
+0 2 * * 0 /usr/bin/jarch-manager orphans
 
 # Add monthly backup (1st of month)
-0 3 1 * * /usr/local/bin/arch-manager backup-packages
+0 3 1 * * /usr/bin/jarch-manager backup-packages
 ```
 
 ## Useful Aliases
@@ -327,13 +305,13 @@ sudo crontab -e
 Add these to your `~/.bashrc` for quicker access:
 ```bash
 # Add to ~/.bashrc
-alias am='arch-manager'
-alias amu='sudo arch-manager update'
-alias ami='sudo arch-manager install'
-alias amr='sudo arch-manager remove'
-alias ams='arch-manager search'
-alias amc='sudo arch-manager clean-cache'
-alias amsi='arch-manager sysinfo'
+alias am='jarch-manager'
+alias amu='jarch-manager update'
+alias ami='jarch-manager install'
+alias amr='jarch-manager remove'
+alias ams='jarch-manager search'
+alias amc='jarch-manager clean-cache'
+alias amsi='jarch-manager sysinfo'
 
 # Reload bashrc
 source ~/.bashrc
@@ -346,25 +324,19 @@ ami firefox # Install Firefox
 
 ## Troubleshooting
 
-### "Command not found: arch-manager"
+### "Command not found: jarch-manager"
 ```bash
 # Check if installed
-which arch-manager
+which jarch-manager
 
-# If not found, install it
-sudo install -m 755 arch-manager.sh /usr/local/bin/arch-manager
-
-# Or run from current directory
-./arch-manager.sh
+# If not found, install it from [jarch]
+sudo pacman -S jarch-manager
 ```
 
 ### "Permission denied"
 ```bash
-# Make script executable
-chmod +x arch-manager.sh
-
-# Or use sudo for system operations
-sudo arch-manager update
+# jarch-manager uses sudo for system changes: check you're in the wheel group
+groups
 ```
 
 ### "Command not found: paccache"
@@ -379,10 +351,10 @@ sudo pacman -S pacman-contrib
 bash --version
 
 # Check script syntax
-bash -n arch-manager.sh
+bash -n /usr/bin/jarch-manager
 
 # Run with debugging
-bash -x arch-manager.sh
+bash -x /usr/bin/jarch-manager
 ```
 
 ## Getting Help
@@ -390,13 +362,13 @@ bash -x arch-manager.sh
 ### Built-in Help
 ```bash
 # Show help
-arch-manager help
+jarch-manager help
 
 # Show version
-arch-manager version
+jarch-manager version
 
 # Launch interactive menu
-arch-manager menu
+jarch-manager menu
 ```
 
 ### Documentation
@@ -428,9 +400,9 @@ arch-manager menu
 
 ## Next Steps
 
-1. **Explore the interactive menu** - Launch `arch-manager` and browse options
-2. **Create your first backup** - Run `arch-manager backup-packages`
-3. **Check system health** - Run `arch-manager check-failed`
+1. **Explore the interactive menu** - Launch `jarch-manager` and browse options
+2. **Create your first backup** - Run `jarch-manager backup-packages`
+3. **Check system health** - Run `jarch-manager check-failed`
 4. **Set up automation** - See `AUTOMATION_EXAMPLES.md`
 5. **Create aliases** - Add shortcuts to your `.bashrc`
 6. **Read the docs** - Review `README.md` and `QUICK_REFERENCE.md`
@@ -439,62 +411,51 @@ arch-manager menu
 
 ```bash
 # Essential commands
-arch-manager                    # Interactive menu
-arch-manager help              # Show help
-arch-manager sysinfo           # System info
-sudo arch-manager update       # Update system
-arch-manager check-failed      # Check health
-arch-manager backup-packages   # Backup packages
-arch-manager report            # Generate report
+jarch-manager                    # Interactive menu
+jarch-manager help              # Show help
+jarch-manager sysinfo           # System info
+jarch-manager update       # Update system
+jarch-manager check-failed      # Check health
+jarch-manager backup-packages   # Backup packages
+jarch-manager report            # Generate report
 
 # Maintenance
-sudo arch-manager orphans      # Clean orphans
-sudo arch-manager clean-cache  # Clean cache
-sudo arch-manager clean-logs   # Clean logs
+jarch-manager orphans      # Clean orphans
+jarch-manager clean-cache  # Clean cache
+jarch-manager clean-logs   # Clean logs
 
 # Package management
-arch-manager search <term>     # Search packages
-sudo arch-manager install <pkg> # Install package
-arch-manager info <pkg>        # Package info
+jarch-manager search <term>     # Search packages
+jarch-manager install <pkg> # Install package
+jarch-manager info <pkg>        # Package info
 
 # Monitoring
-arch-manager resources         # Resource usage
-arch-manager boot-analysis     # Boot performance
-arch-manager network           # Network status
+jarch-manager resources         # Resource usage
+jarch-manager boot-analysis     # Boot performance
+jarch-manager network           # Network status
 ```
 
 ## Updates and Maintenance
 
-### Updating the Script
-```bash
-# Download new version
-curl -O https://[url]/arch-manager.sh
+### Updating
 
-# Backup old version
-sudo cp /usr/local/bin/arch-manager /usr/local/bin/arch-manager.backup
-
-# Install new version
-sudo install -m 755 arch-manager.sh /usr/local/bin/arch-manager
-
-# Verify
-arch-manager version
-```
+`jarch-manager` is a pacman package from `[jarch]`, so a normal `pacman -Syu`
+(or `jarch-manager update`) updates it.
 
 ### Uninstalling
 ```bash
-# Remove script
-sudo rm /usr/local/bin/arch-manager
+sudo pacman -Rns jarch-manager
 
 # Remove backups (optional)
-rm -rf /var/backups/arch-manager
+sudo rm -rf /var/backups/arch-manager
 
 # Remove config (optional)
-rm -rf ~/.config/arch-manager
+rm -rf ~/.config/jarch-manager ~/.config/arch-manager
 ```
 
 ---
 
-**You're all set!** Launch `arch-manager` to get started, or run `arch-manager help` for more information.
+**You're all set!** Launch `jarch-manager` to get started, or run `jarch-manager help` for more information.
 
 For detailed documentation, see:
 - **README.md** - Complete feature documentation

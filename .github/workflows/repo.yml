@@ -8,6 +8,9 @@ on:
     paths:
       - pkgbuilds/**
       - tools/**
+      # the jarch-meta-<profile> packages are built from the profile lists
+      - profiles/*/pacman
+      - profiles/*/jarch
       - .github/scripts/**
       - .github/workflows/repo.yml
   workflow_dispatch:

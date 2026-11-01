@@ -1,2 +1,3 @@
 # Packages from the [jarch] repo (pkgbuilds/<name>)
 jarch-pkg           # build, fork and update [jarch] packages
+jarch-meta-dev      # the profile as a package (pkgbuilds/jarch-meta.sh)

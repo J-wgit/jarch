@@ -15,7 +15,9 @@
 # - User management
 ################################################################################
 
-set -e  # Exit on error
+# No 'set -e': the menu must survive a failed or cancelled action. Every
+# command that changes the system checks its own status ('|| return').
+set -o pipefail
 
 # Colors for output
 RED='\033[0;31m'
@@ -28,10 +30,24 @@ NC='\033[0m' # No Color
 BOLD='\033[1m'
 
 # Script configuration
-SCRIPT_VERSION="1.0.0"
-LOG_DIR="/var/log/arch-manager"
+SCRIPT_VERSION="1.1.0"
+PROG="$(basename "$0")"
+
+# Your home, even under sudo: reports and your config file belong to you,
+# not to root
+if [[ $EUID -eq 0 && -n "${SUDO_USER:-}" ]]; then
+    USER_HOME="$(getent passwd "$SUDO_USER" | cut -d: -f6)"
+else
+    USER_HOME="$HOME"
+fi
+USER_HOME="${USER_HOME:-$HOME}"
+
+# Defaults; override them in a config file (see load_config)
+# (the arch-manager name is kept so earlier backups stay restorable)
 BACKUP_DIR="/var/backups/arch-manager"
-CONFIG_FILE="$HOME/.config/arch-manager/config"
+REPORT_DIR="$USER_HOME"
+CACHE_KEEP=3
+AUR_HELPER=""   # paru or yay; empty = whichever is installed (paru first)
 
 ################################################################################
 # Utility Functions
@@ -59,12 +75,51 @@ print_info() {
     echo -e "${BLUE}ℹ${NC} $1"
 }
 
-check_root() {
-    if [[ $EUID -ne 0 ]]; then
-        print_error "This function requires root privileges"
-        echo "Please run with sudo or as root"
-        return 1
+# as_root <cmd> [args...] — run a command as root: directly when we already
+# are root, else through sudo. Run jarch-manager as yourself; it asks for your
+# password only for the steps that change the system.
+as_root() {
+    if [[ $EUID -eq 0 ]]; then
+        "$@"
+    else
+        sudo "$@"
     fi
+}
+
+# Config files, later ones winning. Each is a bash file of KEY=value lines.
+config_files() {
+    printf '%s\n' /etc/jarch-manager.conf \
+        "$USER_HOME/.config/arch-manager/config" \
+        "${XDG_CONFIG_HOME:-$USER_HOME/.config}/jarch-manager/config"
+}
+
+load_config() {
+    local f
+    while read -r f; do
+        # shellcheck source=/dev/null
+        [[ -r "$f" ]] && source "$f"
+    done < <(config_files)
+    if ! [[ "$CACHE_KEEP" =~ ^[0-9]+$ ]]; then
+        print_warning "CACHE_KEEP must be a number (got '$CACHE_KEEP'); using 3"
+        CACHE_KEEP=3
+    fi
+    case "$AUR_HELPER" in
+        ""|paru|yay) ;;
+        *) print_warning "AUR_HELPER must be paru or yay (got '$AUR_HELPER'); detecting it"
+           AUR_HELPER="" ;;
+    esac
+}
+
+# aur_helper — the AUR helper to use, or nothing if none is installed
+aur_helper() {
+    if [[ -n "$AUR_HELPER" ]]; then
+        command -v "$AUR_HELPER" &>/dev/null && echo "$AUR_HELPER"
+        return 0
+    fi
+    local h
+    for h in paru yay; do
+        if command -v "$h" &>/dev/null; then echo "$h"; return 0; fi
+    done
 }
 
 confirm_action() {
@@ -79,15 +134,11 @@ confirm_action() {
     return 0
 }
 
-create_dirs() {
-    mkdir -p "$(dirname "$CONFIG_FILE")"
-}
-
 # The backup dir lives under /var, so it's created (owned by you) with sudo,
 # and only by the commands that write backups
 ensure_backup_dir() {
     [[ -w "$BACKUP_DIR" ]] && return 0
-    sudo install -d -o "$(id -un)" -g "$(id -gn)" "$BACKUP_DIR"
+    as_root install -d -o "$(id -un)" -g "$(id -gn)" "$BACKUP_DIR"
 }
 
 ################################################################################
@@ -96,13 +147,19 @@ ensure_backup_dir() {
 
 pkg_update_system() {
     print_header "System Update"
-    check_root || return 1
 
-    print_info "Syncing package databases..."
-    pacman -Sy
-
+    # checkupdates syncs a private copy of the databases: a bare 'pacman -Sy'
+    # here would leave the system half-upgraded if the update is declined
     print_info "Checking for updates..."
-    local updates=$(pacman -Qu | wc -l)
+    local pending
+    if command -v checkupdates &>/dev/null; then
+        pending="$(checkupdates 2>/dev/null)"
+    else
+        as_root pacman -Sy || return
+        pending="$(pacman -Qu)"
+    fi
+    local updates=0
+    [[ -n "$pending" ]] && updates=$(wc -l <<<"$pending")
 
     if [[ $updates -eq 0 ]]; then
         print_success "System is up to date!"
@@ -110,11 +167,11 @@ pkg_update_system() {
     fi
 
     echo -e "\n${CYAN}Available updates: ${BOLD}$updates${NC}\n"
-    pacman -Qu
+    echo "$pending"
     echo
 
     if confirm_action "Update all packages?"; then
-        pacman -Syu --noconfirm
+        as_root pacman -Syu --noconfirm || return
         print_success "System updated successfully!"
 
         # Check if reboot needed
@@ -126,33 +183,31 @@ pkg_update_system() {
 
 pkg_install() {
     print_header "Package Installation"
-    check_root || return 1
 
     if [[ -z "$1" ]]; then
         print_error "No package specified"
-        echo "Usage: $0 install <package_name>"
+        echo "Usage: $PROG install <package_name>"
         return 1
     fi
 
     local package="$1"
     print_info "Installing package: $package"
-    pacman -S "$package"
+    as_root pacman -S "$package" || return
     print_success "Package installed successfully!"
 }
 
 pkg_remove() {
     print_header "Package Removal"
-    check_root || return 1
 
     if [[ -z "$1" ]]; then
         print_error "No package specified"
-        echo "Usage: $0 remove <package_name>"
+        echo "Usage: $PROG remove <package_name>"
         return 1
     fi
 
     local package="$1"
     if confirm_action "Remove package '$package' and its dependencies?"; then
-        pacman -Rns "$package"
+        as_root pacman -Rns "$package" || return
         print_success "Package removed successfully!"
     fi
 }
@@ -162,7 +217,7 @@ pkg_search() {
 
     if [[ -z "$1" ]]; then
         print_error "No search term specified"
-        echo "Usage: $0 search <search_term>"
+        echo "Usage: $PROG search <search_term>"
         return 1
     fi
 
@@ -176,7 +231,7 @@ pkg_info() {
 
     if [[ -z "$1" ]]; then
         print_error "No package specified"
-        echo "Usage: $0 info <package_name>"
+        echo "Usage: $PROG info <package_name>"
         return 1
     fi
 
@@ -204,8 +259,8 @@ pkg_list_orphans() {
     echo
 
     if confirm_action "Remove all orphaned packages?"; then
-        check_root || return 1
-        pacman -Rns $(pacman -Qtdq) --noconfirm
+        # shellcheck disable=SC2046  # one package name per word
+        as_root pacman -Rns --noconfirm $(pacman -Qtdq) || return
         print_success "Orphaned packages removed!"
     fi
 }
@@ -222,15 +277,14 @@ pkg_list_explicit() {
 pkg_aur_helper_check() {
     print_header "AUR Helper Status"
 
-    if command -v yay &>/dev/null; then
-        print_success "yay is installed"
-        yay --version
-    elif command -v paru &>/dev/null; then
-        print_success "paru is installed"
-        paru --version
+    local h
+    h="$(aur_helper)"
+    if [[ -n "$h" ]]; then
+        print_success "$h is installed"
+        "$h" --version
     else
-        print_warning "No AUR helper detected"
-        echo "Consider installing 'yay' or 'paru' for AUR support"
+        print_warning "No AUR helper detected${AUR_HELPER:+ ($AUR_HELPER is configured but not installed)}"
+        echo "Consider installing 'paru' or 'yay' for AUR support"
     fi
 }
 
@@ -240,14 +294,13 @@ pkg_aur_helper_check() {
 
 maint_clean_cache() {
     print_header "Package Cache Cleanup"
-    check_root || return 1
 
     print_info "Checking package cache..."
     local cache_size=$(du -sh /var/cache/pacman/pkg 2>/dev/null | cut -f1)
     echo -e "${CYAN}Current cache size: ${BOLD}$cache_size${NC}\n"
 
     echo "Cleanup options:"
-    echo "1) Remove all cached packages except the 3 most recent versions"
+    echo "1) Remove all cached packages except the $CACHE_KEEP most recent versions"
     echo "2) Remove all uninstalled packages from cache"
     echo "3) Remove all packages from cache"
     echo "4) Cancel"
@@ -257,18 +310,18 @@ maint_clean_cache() {
 
     case $REPLY in
         1)
-            print_info "Keeping 3 most recent versions..."
-            paccache -rk3
+            print_info "Keeping the $CACHE_KEEP most recent versions..."
+            as_root paccache -rk"$CACHE_KEEP" || return
             print_success "Cache cleaned!"
             ;;
         2)
             print_info "Removing uninstalled packages..."
-            paccache -ruk0
+            as_root paccache -ruk0 || return
             print_success "Cache cleaned!"
             ;;
         3)
             if confirm_action "Remove ALL packages from cache?"; then
-                pacman -Scc --noconfirm
+                as_root pacman -Scc --noconfirm || return
                 print_success "Cache completely cleared!"
             fi
             ;;
@@ -286,7 +339,6 @@ maint_clean_cache() {
 
 maint_clean_logs() {
     print_header "System Log Cleanup"
-    check_root || return 1
 
     print_info "Checking journal size..."
     journalctl --disk-usage
@@ -304,19 +356,19 @@ maint_clean_logs() {
 
     case $REPLY in
         1)
-            journalctl --vacuum-time=7d
+            as_root journalctl --vacuum-time=7d || return
             print_success "Old logs removed!"
             ;;
         2)
-            journalctl --vacuum-time=30d
+            as_root journalctl --vacuum-time=30d || return
             print_success "Old logs removed!"
             ;;
         3)
-            journalctl --vacuum-size=500M
+            as_root journalctl --vacuum-size=500M || return
             print_success "Logs trimmed to size!"
             ;;
         4)
-            journalctl --vacuum-time=1weeks
+            as_root journalctl --vacuum-time=1weeks || return
             print_success "Old logs removed!"
             ;;
         5)
@@ -375,7 +427,6 @@ maint_filesystem_check() {
 
 maint_temp_files() {
     print_header "Temporary Files Cleanup"
-    check_root || return 1
 
     print_info "Checking temporary directories..."
 
@@ -386,8 +437,8 @@ maint_temp_files() {
     du -sh /var/tmp 2>/dev/null || echo "N/A"
 
     if confirm_action "Clean temporary files older than 7 days?"; then
-        find /tmp -type f -atime +7 -delete 2>/dev/null || true
-        find /var/tmp -type f -atime +7 -delete 2>/dev/null || true
+        as_root find /tmp -type f -atime +7 -delete 2>/dev/null || true
+        as_root find /var/tmp -type f -atime +7 -delete 2>/dev/null || true
         print_success "Old temporary files cleaned!"
     fi
 }
@@ -433,10 +484,9 @@ service_list() {
 
 service_manage() {
     print_header "Service Management"
-    check_root || return 1
 
     if [[ -z "$1" ]] || [[ -z "$2" ]]; then
-        print_error "Usage: $0 service <action> <service_name>"
+        print_error "Usage: $PROG service <action> <service_name>"
         echo "Actions: start, stop, restart, enable, disable, status"
         return 1
     fi
@@ -446,7 +496,7 @@ service_manage() {
 
     case $action in
         start|stop|restart|enable|disable)
-            systemctl "$action" "$service"
+            as_root systemctl "$action" "$service" || return
             print_success "Service $service ${action}ed"
             ;;
         status)
@@ -503,7 +553,7 @@ monitor_boot_analysis() {
     read -p "Generate detailed boot chart? (y/N): " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        local output_file="$HOME/boot-analysis-$(date +%Y%m%d-%H%M%S).svg"
+        local output_file="$REPORT_DIR/boot-analysis-$(date +%Y%m%d-%H%M%S).svg"
         systemd-analyze plot > "$output_file"
         print_success "Boot chart saved to: $output_file"
     fi
@@ -602,8 +652,8 @@ backup_config_files() {
         return 1
     fi
 
-    sudo tar czf "$backup_file" "${existing_paths[@]}" 2>/dev/null
-    sudo chown "$USER:$USER" "$backup_file"
+    as_root tar czf "$backup_file" "${existing_paths[@]}" 2>/dev/null || return
+    as_root chown "$(id -un):$(id -gn)" "$backup_file"
 
     print_success "Configuration backup saved to: $backup_file"
     echo -e "${CYAN}Size:${NC} $(du -h "$backup_file" | cut -f1)"
@@ -611,7 +661,6 @@ backup_config_files() {
 
 restore_package_list() {
     print_header "Restore Packages from List"
-    check_root || return 1
 
     echo "Available package list backups:"
     ls -1t "$BACKUP_DIR"/packages-*.txt 2>/dev/null | head -5 | nl
@@ -628,7 +677,7 @@ restore_package_list() {
     print_info "Restoring from: $backup_file"
 
     if confirm_action "Install $(wc -l < "$backup_file") packages?"; then
-        pacman -S --needed - < "$backup_file"
+        as_root pacman -S --needed - < "$backup_file" || return
         print_success "Packages restored!"
     fi
 }
@@ -658,14 +707,13 @@ kernel_list() {
 
 kernel_update_initramfs() {
     print_header "Regenerate initramfs"
-    check_root || return 1
 
     print_info "Current mkinitcpio configuration:"
     cat /etc/mkinitcpio.conf | grep "^HOOKS="
     echo
 
     if confirm_action "Regenerate all initramfs images?"; then
-        mkinitcpio -P
+        as_root mkinitcpio -P || return
         print_success "initramfs regenerated for all kernels!"
     fi
 }
@@ -711,7 +759,7 @@ user_groups() {
 diag_full_report() {
     print_header "Full System Diagnostics"
 
-    local report_file="$HOME/system-report-$(date +%Y%m%d-%H%M%S).txt"
+    local report_file="$REPORT_DIR/system-report-$(date +%Y%m%d-%H%M%S).txt"
 
     print_info "Generating comprehensive system report..."
 
@@ -782,12 +830,11 @@ diag_check_updates() {
     checkupdates 2>/dev/null || echo "No updates available"
     echo
 
-    if command -v yay &>/dev/null; then
-        print_info "Checking AUR (via yay)..."
-        yay -Qua 2>/dev/null || echo "No AUR updates"
-    elif command -v paru &>/dev/null; then
-        print_info "Checking AUR (via paru)..."
-        paru -Qua 2>/dev/null || echo "No AUR updates"
+    local h
+    h="$(aur_helper)"
+    if [[ -n "$h" ]]; then
+        print_info "Checking AUR (via $h)..."
+        "$h" -Qua 2>/dev/null || echo "No AUR updates"
     fi
 }
 
@@ -796,8 +843,8 @@ diag_check_updates() {
 ################################################################################
 
 show_menu() {
-    clear
-    print_header "Arch Linux System Manager v$SCRIPT_VERSION"
+    [[ -t 1 ]] && clear
+    print_header "Jarch Manager v$SCRIPT_VERSION"
 
     echo -e "${BOLD}${BLUE}Package Management:${NC}"
     echo "  1) Update system"
@@ -859,7 +906,7 @@ show_menu() {
 main_menu() {
     while true; do
         show_menu
-        read -p "Select option: " choice
+        read -r -p "Select option: " choice || { echo; exit 0; }
         echo
 
         case $choice in
@@ -892,11 +939,14 @@ main_menu() {
             27) diag_full_report ;;
             28) diag_check_updates ;;
             0) print_info "Exiting..."; exit 0 ;;
-            *) print_error "Invalid option" ;;
+            *) print_error "Invalid option"; false ;;
         esac
 
+        local status=$?
         echo
-        read -p "Press Enter to continue..."
+        [[ $status -ne 0 ]] && print_warning "That didn't finish (exit status $status)"
+        # End of input (Ctrl-D, or a closed pipe) leaves the menu
+        read -r -p "Press Enter to continue..." || exit 0
     done
 }
 
@@ -904,11 +954,24 @@ main_menu() {
 # Command Line Interface
 ################################################################################
 
+show_config() {
+    local f
+    echo "Config files (later ones win):"
+    while read -r f; do
+        if [[ -r "$f" ]]; then echo "  $f"; else echo "  $f (not present)"; fi
+    done < <(config_files)
+    echo
+    echo "BACKUP_DIR=$BACKUP_DIR"
+    echo "REPORT_DIR=$REPORT_DIR"
+    echo "CACHE_KEEP=$CACHE_KEEP"
+    echo "AUR_HELPER=${AUR_HELPER:-(auto: $(aur_helper || true))}"
+}
+
 show_help() {
     cat << EOF
-Arch Linux System Manager v$SCRIPT_VERSION
+Jarch Manager v$SCRIPT_VERSION
 
-Usage: $0 [command] [options]
+Usage: $PROG [command] [options]
 
 Commands:
   Interactive Menu:
@@ -941,6 +1004,9 @@ Commands:
     backup-config           Backup configuration files
     restore-packages        Restore packages from backup
 
+  Services:
+    service <action> <name> start, stop, restart, enable, disable or status a service
+
   Kernel:
     list-kernels            List installed kernels
     regen-initramfs         Regenerate initramfs
@@ -950,14 +1016,15 @@ Commands:
     check-updates           Check for available updates
 
   Other:
+    config                  Show the settings in use and where they come from
     help                    Show this help message
     version                 Show version information
 
 Examples:
-  $0 menu                 # Interactive mode
-  $0 update               # Update system
-  $0 install firefox      # Install Firefox
-  $0 sysinfo              # Show system info
+  $PROG menu                 # Interactive mode
+  $PROG update               # Update system
+  $PROG install firefox      # Install Firefox
+  $PROG sysinfo              # Show system info
 
 EOF
 }
@@ -967,8 +1034,7 @@ EOF
 # Main Script Entry Point
 ################################################################################
 
-# Create necessary directories
-create_dirs
+load_config
 
 # Parse command line arguments
 case "${1:-menu}" in
@@ -1002,6 +1068,9 @@ case "${1:-menu}" in
     backup-config) backup_config_files ;;
     restore-packages) restore_package_list ;;
 
+    # Services
+    service) service_manage "${2:-}" "${3:-}" ;;
+
     # Kernel
     list-kernels) kernel_list ;;
     regen-initramfs) kernel_update_initramfs ;;
@@ -1011,14 +1080,14 @@ case "${1:-menu}" in
     check-updates) diag_check_updates ;;
 
     # Help
+    config) show_config ;;
     help|--help|-h) show_help ;;
-    version|--version|-v) echo "Arch Linux System Manager v$SCRIPT_VERSION" ;;
+    version|--version|-v) echo "Jarch Manager v$SCRIPT_VERSION" ;;
 
     *)
         print_error "Unknown command: $1"
-        echo "Run '$0 help' for usage information"
+        echo "Run '$PROG help' for usage information"
         exit 1
         ;;
 esac
 
-exit 0
