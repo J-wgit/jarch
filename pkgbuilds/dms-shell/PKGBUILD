@@ -28,10 +28,13 @@ optdepends=('cava: Audio visualizer'
             'qt6ct: Qt6 application theming'
             'systemd: Required for network managementa via systemd-networkd'
             'wtype: Paste from clipboard history and plugins')
-makedepends=(go)
-_archive="$_pkg1-$pkgver"
-source=("$url/archive/v$pkgver/$_archive.tar.gz")
-sha256sums=('9a23a717eef088da3d25b355d4f13feff7499bbafe5e93c9fa379ee15e962709')
+makedepends=(go git)
+# jarch: GitHub's v$pkgver tarball no longer matches the AUR's checksum, so
+# build from git at the commit the v1.4.4 tag points to
+_commit=1f64bb80311e0169e75a6a507fc07d909117c90c
+_archive="$_pkg1"
+source=("git+$url.git#commit=$_commit")
+sha256sums=('SKIP')
 
 build() {
 	cd "$_archive/core"
