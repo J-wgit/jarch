@@ -47,3 +47,4 @@ jobs:
           GH_TOKEN: ${{ secrets.JARCH_PUBLISH_TOKEN || github.token }}
           JARCH_SIGNING_KEY: ${{ secrets.JARCH_SIGNING_KEY }}
           REBUILD: ${{ inputs.rebuild && '1' || '' }}
+

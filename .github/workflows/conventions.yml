@@ -1,17 +1,26 @@
 name: Conventions
 
 on:
+  workflow_dispatch:
   pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   conventions:
+    timeout-minutes: 5
     # Conventional Commits and a prefixed branch name, the two conventions agents
     # can check for themselves before a human looks (see AGENTS.md).
     name: commits + branch name
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
       - name: Branch is prefixed by who drives it
