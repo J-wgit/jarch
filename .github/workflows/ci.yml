@@ -1,15 +1,24 @@
 name: CI
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   shellcheck:
+    timeout-minutes: 60
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: shellcheck
         run: |
           shellcheck -x install/jarch-install install/lib/*.sh install/stages/*.sh tests/*.sh tests/stubs/* \
@@ -17,29 +26,32 @@ jobs:
           shellcheck -S error tools/jarch-manager/arch-manager.sh
 
   unit:
+    timeout-minutes: 60
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: jarch-manager with pacman, sudo and systemctl stubbed
         run: tests/jarch-manager.sh
       - name: Every profile's meta-package depends on exactly its lists
         run: tests/meta-packages.sh
 
   packages-exist:
+    timeout-minutes: 60
     runs-on: ubuntu-latest
     container: archlinux:latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Check every listed package exists in the repos
         run: tests/check-packages.sh
 
   packages:
+    timeout-minutes: 60
     runs-on: ubuntu-latest
     container: archlinux:latest
     steps:
       - name: Install git (so checkout keeps .git for package versions)
         run: pacman -Syu --noconfirm --needed git
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build pkgbuilds/ into a signed [jarch] repo (throwaway key)
         run: JARCH_TEST_SIGN=1 .github/scripts/build-repo.sh out/repo
       - name: Package list
@@ -50,10 +62,11 @@ jobs:
           path: out/repo
 
   install-base:
+    timeout-minutes: 60
     needs: packages
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/download-artifact@v4
         with:
           name: jarch-repo
@@ -62,9 +75,10 @@ jobs:
         run: JARCH_TEST_REPO=out/repo tests/container-install.sh base
 
   install-kde:
+    timeout-minutes: 60
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # full history: Jarch's tools version by commit count, and verify.sh
           # compares that with what the published [jarch] serves
@@ -73,9 +87,10 @@ jobs:
         run: tests/container-install.sh kde
 
   install-offline:
+    timeout-minutes: 60
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Stubbed install of all profiles (dry run, install, idempotent re-run)
         run: |
           tests/offline-install.sh base,desktop,dev,kde repo

@@ -1,0 +1,30 @@
+{
+  "schema_version": "0.1.0",
+  "type": "handoff",
+  "task": "November 2026 repository CI and small maintenance review",
+  "author": "codex-maintenance",
+  "to": null,
+  "changed": [
+    {
+      "path": ".github/workflows/",
+      "summary": "Modernize validation actions and bound/check workflows; see CI_REVIEW.md for repository-specific changes."
+    }
+  ],
+  "verified": [
+    {
+      "command": "actionlint -shellcheck= -pyflakes= .github/workflows/*.yml",
+      "result": "pass",
+      "detail": "Local workflow analysis only; application/hosted checks are separate."
+    }
+  ],
+  "uncertain": [
+    "Fresh hosted results must be inspected at the PR head.",
+    "Full application qualification was not run locally except for the focused checks documented in CI_REVIEW.md."
+  ],
+  "next": [
+    "J reviews the PR and applicable checks before merging."
+  ],
+  "branch": "codex/ci-maintenance-2026-11-17",
+  "commits": [],
+  "pr": null
+}
